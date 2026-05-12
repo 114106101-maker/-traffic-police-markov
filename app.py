@@ -105,7 +105,7 @@ def draw_simulation_frame(n, edges, current_node, steady_v):
     node_colors = ["#ADD8E6" if i != current_node else "#FFFF00" for i in range(1, n + 1)]
     nx.draw(G, pos, with_labels=True, node_color=node_colors, 
             node_size=600, edge_color="#D3D3D3", font_size=10, font_weight='bold', ax=ax)
-    ax.set_title(f"警察實時位置: 路口 {current_node}", fontsize=12, fontweight='bold')
+    ax.set_title(f"Police real-time location: intersection {current_node}", fontsize=12, fontweight='bold')
     plt.axis('off')
     return fig
 
