@@ -123,7 +123,7 @@ def draw_simulation_frame(n, edges, current_node, steady_v):
     
     nx.draw(G, pos, with_labels=True, node_color=node_colors, 
             node_size=600, edge_color="#D3D3D3", font_size=10, font_weight='bold', ax=ax)
-    ax.set_title(f"警察目前位置: 路口 {current_node}", fontsize=12, fontweight='bold')
+    ax.set_title(f"Police officer's current location: intersection{current_node}", fontsize=12, fontweight='bold')
     plt.axis('off')
     return fig
 
