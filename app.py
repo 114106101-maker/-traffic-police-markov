@@ -3,153 +3,190 @@ import numpy as np
 import pandas as pd
 import networkx as nx
 import matplotlib.pyplot as plt
+from pyvis.network import Network
+import streamlit.components.v1 as components
+import random
+import time
 
-# ----------------- 1. 核心計算邏輯 -----------------
+# ================== 核心邏輯模組 ==================
 
-def build_transition_matrix(n, edges):
+def build_transition_matrix(n, edges_with_weights):
+    """
+    edges_with_weights: list of tuples (u, v, weight)
+    """
     P = np.zeros((n, n))
+    # 建立加權鄰接表
     adj = {i: [] for i in range(1, n + 1)}
-    for u, v in edges:
-        adj[u].append(v)
-        adj[v].append(u)
+    for u, v, w in edges_with_weights:
+        adj[u].append((v, w))
+        adj[v].append((u, w))
     
     for i in range(1, n + 1):
         neighbors = adj[i]
-        prob = 1.0 / (len(neighbors) + 1)
-        P[i-1, i-1] = prob
-        for nb in neighbors:
-            P[i-1, nb-1] = prob
+        # 計算總權重 (包含留在原處的權重，預設為 1.0)
+        self_weight = 1.0 
+        total_weight = sum([w for v, w in neighbors]) + self_weight
+        
+        P[i-1, i-1] = self_weight / total_weight
+        for v, w in neighbors:
+            P[i-1, v-1] = w / total_weight
+            
     return P
-
-def get_prob_after_steps(P, start_node, end_node, steps):
-    n = P.shape[0]
-    v0 = np.zeros(n)
-    v0[start_node - 1] = 1.0
-    Pn = np.linalg.matrix_power(P, steps)
-    vn = np.dot(v0, Pn)
-    return vn[end_node - 1]
 
 def find_steady_state(P, threshold):
     n = P.shape[0]
     v = np.ones(n) / n 
+    error_history = []
     iteration = 0
     while True:
         v_next = np.dot(v, P)
-        if np.max(np.abs(v_next - v)) < threshold:
+        error = np.max(np.abs(v_next - v))
+        error_history.append(error)
+        if error < threshold or iteration > 10000:
             break
         v = v_next
         iteration += 1
-        if iteration > 10000: break
-    return v, iteration
+    return v, iteration, error_history
 
-# ----------------- 2. 視覺化繪圖函數 -----------------
+def run_simulation(P, start_node, steps):
+    n = P.shape[0]
+    current = start_node
+    path = [current]
+    for _ in range(steps):
+        # 根據當前狀態的機率分佈隨機選擇下一個狀態
+        probs = P[current-1, :]
+        current = np.random.choice(range(1, n + 1), p=probs)
+        path.append(current)
+    return path
 
-def draw_graph(n, edges, steady_v=None):
-    # 建立 NetworkX 圖形
-    G = nx.Graph()
-    G.add_nodes_from(range(1, n + 1))
-    G.add_edges_from(edges)
+# ================== 視覺化模組 ==================
+
+def create_interactive_graph(n, edges_with_weights, steady_v=None):
+    net = Network(height="500px", width="100%", bgcolor="#ffffff", font_color="black")
     
-    plt.figure(figsize=(8, 6))
+    # 設定物理模擬參數，讓圖形更美觀
+    net.barnes_hut()
     
-    # 嘗試使用 spring_layout 使圖形分佈均勻
-    pos = nx.spring_layout(G, seed=42) 
-    
-    # 如果有穩定狀態向量，則用顏色表示機率
-    if steady_v is not None:
-        node_color = steady_v
-        cmap = plt.cm.Blues # 使用藍色系
-        colorbar = plt.colorbar(plt.cm.ScalarMappable(cmap=cmap), ax=plt.gca())
-        colorbar.set_label('穩定狀態機率 (Duty Probability)')
-    else:
-        node_color = 'skyblue'
+    for i in range(1, n + 1):
+        # 顏色根據穩定狀態機率決定
+        color = "#ADD8E6" # 預設淺藍
+        if steady_v is not None:
+            # 將機率映射到顏色深度 (越深越紅)
+            intensity = int(steady_v[i-1] * 255 * 2) # 簡單權衡
+            color = f"rgb(255, {255-min(intensity, 255)}, {255-min(intensity, 255)})"
+        
+        net.add_node(i, label=f"路口 {i}", color=color, title=f"機率: {steady_v[i-1]:.4f}" if steady_v is not None else "")
 
-    # 繪製節點
-    nx.draw_networkx_nodes(G, pos, node_size=700, node_color=node_color, 
-                           cmap=plt.cm.Blues, edgecolors='grey')
-    # 繪製邊線
-    nx.draw_networkx_edges(G, pos, width=2, edge_color='gray', alpha=0.6)
-    # 繪製標籤
-    nx.draw_networkx_labels(G, pos, font_size=12, font_family='sans-serif')
-    
-    plt.title("路口連接拓撲圖", fontsize=15)
-    plt.axis('off')
-    return plt.gcf()
+    for u, v, w in edges_with_weights:
+        net.add_edge(u, v, value=w, title=f"權重: {w}")
 
-# ----------------- 3. Streamlit 介面 -----------------
+    # 儲存為臨時 HTML 檔案
+    net.save_graph("graph.html")
+    return "graph.html"
 
-st.set_page_config(page_title="通用馬可夫鏈分析器", layout="wide")
+# ================== Streamlit 介面 ==================
 
-st.title("👮 交通警察值勤分析系統 (視覺化版)")
-st.markdown("您可以自定義路口數量、連接方式，並直接觀察路口拓撲圖。")
+st.set_page_config(page_title="馬可夫鏈分析工作站", layout="wide")
 
-# --- 側邊欄 ---
-st.sidebar.header("⚙️ 參數設定")
+st.title("👮 交通警察值勤分析工作站 (Pro)")
+st.markdown("整合了**互動圖形、加權路徑、隨機模擬與收斂分析**的專業工具。")
+
+# --- 側邊欄：參數設定 ---
+st.sidebar.header("⚙️ 系統配置")
 n_nodes = st.sidebar.number_input("路口總數 (n)", min_value=2, max_value=50, value=12)
 
-layout_type = st.sidebar.selectbox("選擇路口連接佈局", ["3x4 網格 (預設)", "自定義網格 (R x C)", "手動輸入連接清單"])
+layout_type = st.sidebar.selectbox("連接佈局", ["3x4 網格", "自定義網格", "手動輸入 (u,v,w)"])
 
-edges = []
-if layout_type == "3x4 網格 (預設)":
+edges_with_weights = []
+if layout_type == "3x4 網格":
     for r in range(3):
         for c in range(4):
             u = r * 4 + c + 1
-            if c < 3: edges.append((u, u + 1))
-            if r < 2: edges.append((u, u + 4))
-elif layout_type == "自定義網格 (R x C)":
-    rows = st.sidebar.number_input("行數 (Rows)", min_value=1, max_value=10, value=3)
-    cols = st.sidebar.number_input("列數 (Cols)", min_value=1, max_value=10, value=4)
+            if c < 3: edges_with_weights.append((u, u + 1, 1.0))
+            if r < 2: edges_with_weights.append((u, u + 4, 1.0))
+elif layout_type == "自定義網格":
+    rows = st.sidebar.number_input("行數", value=3)
+    cols = st.sidebar.number_input("列數", value=4)
     if rows * cols == n_nodes:
         for r in range(rows):
             for c in range(cols):
                 u = r * cols + c + 1
-                if c < cols - 1: edges.append((u, u + 1))
-                if r < rows - 1: edges.append((u, u + cols))
-    else:
-        st.sidebar.error(f"⚠️ {rows}x{cols} 不等於 {n_nodes}")
-elif layout_type == "手動輸入連接清單":
-    raw_input = st.sidebar.text_area("輸入連接關係 (u,v)", "1,2\n2,3\n3,4\n4,1\n1,5")
+                if c < cols - 1: edges_with_weights.append((u, u + 1, 1.0))
+                if r < rows - 1: edges_with_weights.append((u, u + cols, 1.0))
+elif layout_type == "手動輸入 (u,v,w)":
+    st.sidebar.info("格式：`路口1,路口2,權重` (權重越大越容易走)")
+    raw_input = st.sidebar.text_area("輸入關係", "1,2,1.0\n2,3,2.0\n3,4,1.0\n4,1,1.0\n1,5,0.5")
     for line in raw_input.split('\n'):
         if line.strip():
             try:
-                u, v = map(int, line.split(','))
-                if 1 <= u <= n_nodes and 1 <= v <= n_nodes: edges.append((u, v))
+                u, v, w = map(float, line.split(','))
+                edges_with_weights.append((int(u), int(v), w))
             except: pass
 
-threshold = st.sidebar.number_input("穩定狀態閾值", value=0.000001, format="%.7f")
+threshold = st.sidebar.number_input("收斂閾值", value=0.000001, format="%.7f")
 
-# --- 計算 ---
-P = build_transition_matrix(n_nodes, edges)
-steady_v, iters = find_steady_state(P, threshold)
+# --- 核心計算 ---
+P = build_transition_matrix(n_nodes, edges_with_weights)
+steady_v, iters, error_hist = find_steady_state(P, threshold)
 
-# --- 介面分頁 ---
-tab_graph, tab_matrix, tab_prob, tab_steady = st.tabs(["🌐 連接圖", "📊 轉移矩陣", "⏱️ 機率預測", "🎯 穩定狀態"])
+# --- 分頁介面 ---
+tab_graph, tab_sim, tab_matrix, tab_conv, tab_steady = st.tabs([
+    "🌐 互動拓撲圖", "⏱️ 隨機行走模擬", "📊 轉移矩陣", "📉 收斂分析", "🎯 穩定狀態"
+])
 
 with tab_graph:
-    st.subheader("路口連接視覺化")
-    st.info("提示：節點顏色越深，代表長期值勤機率越高。")
-    fig = draw_graph(n_nodes, edges, steady_v)
-    st.pyplot(fig)
+    st.subheader("互動式路口連接圖")
+    st.info("💡 提示：您可以拖拽節點。顏色越紅 $\rightarrow$ 長期值勤機率越高。")
+    graph_html = create_interactive_graph(n_nodes, edges_with_weights, steady_v)
+    with open(graph_html, 'r', encoding='utf-8') as f:
+        components.html(f.read(), height=550)
+
+with tab_sim:
+    st.subheader("警察隨機行走模擬")
+    col_s1, col_s2, col_s3 = st.columns(3)
+    with col_s1: start_node = st.number_input("起始路口", 1, n_nodes, 1)
+    with col_s2: sim_steps = st.slider("模擬時間 (小時)", 1, 100, 20)
+    with col_s3: speed = st.slider("動畫速度", 0.1, 1.0, 0.3)
+    
+    if st.button("開始模擬行走"):
+        path = run_simulation(P, start_node, sim_steps)
+        st.write(f"🚶 模擬路徑: {' $\rightarrow$ '.join(map(str, path))}")
+        
+        # 簡單的視覺化路徑
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        for i in range(len(path)):
+            status_text.text(f"目前位置: 路口 {path[i]}")
+            progress_bar.progress((i + 1) / len(path))
+            time.sleep(speed)
+        st.success("模擬完成！")
 
 with tab_matrix:
     st.subheader("轉移矩陣 $P$")
     df_P = pd.DataFrame(P, index=[f"路口 {i+1}" for i in range(n_nodes)], 
                         columns=[f"路口 {i+1}" for i in range(n_nodes)])
     st.dataframe(df_P.style.format("{:.4f}"))
+    
+    # 導出功能
+    csv = df_P.to_csv().encode('utf-8')
+    st.download_button("📥 下載矩陣為 CSV", csv, "transition_matrix.csv", "text/csv")
 
-with tab_prob:
-    st.subheader("特定時間後的機率")
-    c1, c2, c3 = st.columns(3)
-    with c1: start_n = st.number_input("起始位置", min_value=1, max_value=n_nodes, value=1)
-    with c2: end_n = st.number_input("目標位置", min_value=1, max_value=n_nodes, value=5 if n_nodes >= 5 else 2)
-    with c3: steps = st.number_input("時間 (小時)", min_value=1, max_value=1000, value=10)
-    if st.button("計算機率"):
-        prob = get_prob_after_steps(P, start_n, end_n, steps)
-        st.success(f"從路口 {start_n} 出發，經過 {steps} 小時後在路口 {end_n} 的機率為: **{prob:.6f}**")
+with tab_conv:
+    st.subheader("迭代收斂過程")
+    st.write(f"達到穩定狀態所需迭代次數: {iters}")
+    fig_conv, ax_conv = plt.subplots()
+    ax_conv.plot(error_hist, color='blue', lw=2)
+    ax_conv.set_yscale('log') # 使用對數座標軸，因為誤差下降很快
+    ax_conv.set_xlabel("迭代次數")
+    ax_conv.set_ylabel("最大誤差 (Log Scale)")
+    ax_conv.grid(True, which="both", ls="-", alpha=0.5)
+    st.pyplot(fig_conv)
 
 with tab_steady:
-    st.subheader("長期值勤分佈 (穩定狀態)")
-    st.write(f"迭代次數: {iters}")
-    df_steady = pd.DataFrame({"路口": [f"路口 {i+1}" for i in range(n_nodes)], "長期值勤比例": steady_v})
-    st.table(df_steady.style.format({"長期值勤比例": "{:.4%}"}))
-    st.bar_chart(df_steady.set_index("路口")["長期值勤比例"])
+    st.subheader("長期值勤分佈")
+    df_steady = pd.DataFrame({"路口": [f"路口 {i+1}" for i in range(n_nodes)], "機率": steady_v})
+    st.table(df_steady.style.format({"機率": "{:.4%}"}))
+    st.bar_chart(df_steady.set_index("路口")["機率"])
+    
+    csv_steady = df_steady.to_csv(index=False).encode('utf-8')
+    st.download_button("📥 下載穩定狀態為 CSV", csv_steady, "steady_state.csv", "text/csv")
