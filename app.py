@@ -248,8 +248,8 @@ with tab_conv:
         fig_conv, ax_conv = plt.subplots(figsize=(8, 4))
         ax_conv.plot(error_hist, color='#007bff', lw=2)
         ax_conv.set_yscale('log')
-        ax_conv.set_xlabel("迭代次數")
-        ax_conv.set_ylabel("最大誤差 (Log)")
+        ax_conv.set_xlabel("Number of iterations")
+        ax_conv.set_ylabel("Maximum error (Log)")
         ax_conv.grid(True, alpha=0.3)
         st.pyplot(fig_conv)
 
