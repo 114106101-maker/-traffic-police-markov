@@ -8,7 +8,7 @@ import streamlit.components.v1 as components
 import time
 
 # =======================================================================================
-# 1. 視覺風格與 CSS (維持優化後的現代化界面)
+# 1. 視覺風格與 CSS
 # =======================================================================================
 def apply_custom_style():
     st.markdown("""
@@ -21,14 +21,15 @@ def apply_custom_style():
         div[data-testid="stExpander"] { border: none !important; box-shadow: 0 2px 8px rgba(0,0,0,0.05); background-color: white; border-radius: 10px; }
         .mode-selector { background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); padding: 25px; border-radius: 20px; border: 1px solid #dee2e6; margin-bottom: 30px; text-align: center; }
         .calc-box { background-color: #ffffff; padding: 20px; border-left: 6px solid #007bff; border-radius: 8px; margin: 15px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .explain-box { background-color: #fff9db; padding: 15px; border-radius: 8px; border: 1px solid #ffe066; margin-top: 10px; color: #856404; font-size: 0.95rem; }
         .path-box { background-color: #f1f3f5; padding: 15px; border-radius: 12px; border: 2px dashed #adb5bd; font-family: 'Consolas', monospace; color: #495057; }
         .stTabs [data-baseweb="tab"] { background-color: #fff; border: 1px solid #dee2e6; border-radius: 8px 8px 0 0; padding: 10px 20px; }
         </style>
     """, unsafe_allow_html=True)
 
 # =======================================================================================
-# 2. 數學核心邏輯 (維持原樣)
-# =======================================================================================
+# 2. 數學核心邏輯 (確保行加總為 1)
+# ========================================================================================
 def build_transition_matrix(n, edges_with_weights, allow_self_loop=True):
     P = np.zeros((n, n))
     adj = {i: [] for i in range(1, n + 1)}
@@ -36,14 +37,21 @@ def build_transition_matrix(n, edges_with_weights, allow_self_loop=True):
         if 1 <= u <= n and 1 <= v <= n:
             adj[u].append((v, w))
             adj[v].append((u, w))
+    
     self_weight = 1.0 if allow_self_loop else 0.0
+    
     for i in range(1, n + 1):
         neighbors = adj[i]
+        # 計算該行的總權重 (所有出發邊 + 自環)
         total_weight = sum([w for v, w in neighbors]) + self_weight
+        
         if total_weight == 0: continue
+        
+        # 歸一化：每個元素除以總權重，確保該行總和 = 1
         P[i-1, i-1] = self_weight / total_weight
         for v, w in neighbors:
             P[i-1, v-1] = w / total_weight
+            
     return P, adj
 
 def find_steady_state(P, threshold):
@@ -64,7 +72,7 @@ def find_steady_state(P, threshold):
 
 # =======================================================================================
 # 3. 視覺化模組
-# =======================================================================================
+# ========================================================================================
 def create_interactive_graph(n, edges_with_weights, steady_v=None, fixed_pos=None, label_prefix="位置"):
     net = Network(height="500px", width="100%", bgcolor="#ffffff", font_color="black")
     if fixed_pos:
@@ -89,20 +97,19 @@ def create_interactive_graph(n, edges_with_weights, steady_v=None, fixed_pos=Non
     return "graph.html"
 
 def draw_simulation_frame(n, edges, current_node, steady_v, fixed_pos=None):
-    # 【恢復原狀】完全恢復至最原始的繪圖設定
     G = nx.Graph()
     G.add_nodes_from(range(1, n + 1))
     G.add_edges_from([(u, v) for u, v, w in edges])
     pos = fixed_pos if fixed_pos else nx.spring_layout(G, seed=42)
-    fig, ax = plt.subplots(figsize=(6, 4), dpi=100) # 恢復原本 6x4
+    fig, ax = plt.subplots(figsize=(6, 4), dpi=100)
     node_colors = ["#FFFF00" if i == current_node else "#ADD8E6" for i in range(1, n + 1)]
     nx.draw(G, pos, with_labels=True, node_color=node_colors, node_size=600, edge_color="#D3D3D3", font_size=10, font_weight='bold', ax=ax)
-    plt.axis('off') # 不再設定 xlim, ylim，恢復原有的自動縮放
+    plt.axis('off')
     return fig
 
 # =======================================================================================
 # 4. Streamlit 主界面
-# =======================================================================================
+# ========================================================================================
 st.set_page_config(page_title="Markov Analysis Suite Pro", layout="wide")
 apply_custom_style()
 
@@ -241,9 +248,16 @@ if "🧮 矩陣運算分析" in tab_map:
             st.bar_chart(df_vm.set_index("位置")["機率"])
 
 with tab_map["📊 轉移矩陣"]:
-    st.subheader("轉移矩陣 $P$")
-    df_P = pd.DataFrame(P, index=[f"{label_prefix} {i+1}" for i in range(n_nodes)], columns=[f"{label_prefix} {i+1}" for i in range(n_nodes)])
+    st.subheader("轉移矩陣 $P$ (行加總為 1)")
+    
+    # 計算行加總用於驗證
+    row_sums = P.sum(axis=1)
+    df_P = pd.DataFrame(P, index=[f"{label_prefix} {i+1}" for i in range(n_nodes)], 
+                        columns=[f"{label_prefix} {i+1}" for i in range(n_nodes)])
+    df_P['行加總 (Sum)'] = row_sums
+    
     st.dataframe(df_P.style.format("{:.4f}"))
+    st.caption("💡 驗證：每一行的『行加總』應精確等於 1.0000，代表機率分佈完整。")
 
 with tab_map["📉 收斂趨勢"]:
     st.subheader("收斂過程分析")
@@ -278,6 +292,7 @@ with tab_map["📝 計算詳情"]:
         st.markdown(f'<div class="calc-box">', unsafe_allow_html=True)
         st.latex(f"P_{{{row},{col}}} = \\frac{{\\text{{Weight}}_{{{row} \\to {col}}}}}{{\\sum \\text{{Weights from {row}}} + \\text{{Self-loop}}}} ")
         st.latex(f"P_{{{row},{col}}} = \\frac{{{weight_ij:.1f}}}{{{total_w - self_w:.1f} + {self_w:.1f}}} = {res:.4f}")
+        st.markdown(f'<div class="explain-box"><strong>💡 邏輯解析：</strong><br>這代表從{label_prefix} {row} 出發，在所有可能的選擇（含留在原處）中，選擇移動到{label_prefix} {col} 的權重佔比。</div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
     elif calc_mode == "穩定狀態元素 $\\pi_i$":
         node = st.number_input("選擇位置 $i$", 1, n_nodes, 1)
@@ -289,6 +304,7 @@ with tab_map["📝 計算詳情"]:
         st.markdown(f'<div class="calc-box">', unsafe_allow_html=True)
         st.latex(f"\\pi_{{{node}}} = \\sum_{{j=1}}^{{{n_nodes}}} (\\pi_{{j}} \\times P_{{j,{node}}})")
         st.latex(f"\\pi_{{{node}}} = {' + '.join(formula_terms)} = {sum(sum_terms):.4f}")
+        st.markdown(f'<div class="explain-box"><strong>💡 邏輯解析：</strong><br>長期來看，您處於{label_prefix} {node} 的機率，等於「所有能到達這裡的節點 $j$」的機率 $\\pi_j$ 與轉移機率 $P_{j,node}$ 的乘積之總和。</div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
     elif calc_mode == "矩陣乘法 $(P^2)_{ij}$":
         c1, c2 = st.columns(2)
@@ -302,6 +318,7 @@ with tab_map["📝 計算詳情"]:
         st.markdown(f'<div class="calc-box">', unsafe_allow_html=True)
         st.latex(f"(P^2)_{{{r},{c}}} = \\sum_{{k=1}}^{{{n_nodes}}} (P_{{{r},{k}}} \\times P_{{{k},{c}}})")
         st.latex(f"(P^2)_{{{r},{c}}} = {' + '.join(formula_terms)} = {sum(terms):.4f}")
+        st.markdown(f'<div class="explain-box"><strong>💡 邏輯解析：</strong><br>這是在計算「經過恰好 2 步」從 {label_prefix} {r} 到達 {label_prefix} {c} 的機率。它考慮了所有可能的中間跳板節點 $k$，並將每條路徑的機率累加。</div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
 with tab_map["📐 數學原理"]:
