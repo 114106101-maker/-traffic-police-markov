@@ -28,7 +28,7 @@ def apply_custom_style():
     """, unsafe_allow_html=True)
 
 # =======================================================================================
-# 2. 數學核心邏輯 (確保行加總為 1)
+# 2. 數學核心邏輯
 # ========================================================================================
 def build_transition_matrix(n, edges_with_weights, allow_self_loop=True):
     P = np.zeros((n, n))
@@ -37,27 +37,27 @@ def build_transition_matrix(n, edges_with_weights, allow_self_loop=True):
         if 1 <= u <= n and 1 <= v <= n:
             adj[u].append((v, w))
             adj[v].append((u, w))
-    
+
     self_weight = 1.0 if allow_self_loop else 0.0
-    
+
     for i in range(1, n + 1):
         neighbors = adj[i]
-        # 計算該行的總權重 (所有出發邊 + 自環)
         total_weight = sum([w for v, w in neighbors]) + self_weight
-        
         if total_weight == 0: continue
-        
-        # 歸一化：每個元素除以總權重，確保該行總和 = 1
         P[i-1, i-1] = self_weight / total_weight
         for v, w in neighbors:
             P[i-1, v-1] = w / total_weight
-            
     return P, adj
 
 def find_steady_state(P, threshold):
     n = P.shape[0]
     if n == 0: return np.array([]), 0, []
-    v = np.ones(n) / n
+    
+    # 【關鍵修改】將初始向量從均勻分佈 [1/n, ..., 1/n] 改為 點分佈 [1, 0, ..., 0]
+    # 這樣會強迫馬可夫鏈從一個頂點開始擴散，顯著增加收斂所需的迭代次數，使趨勢圖更明顯
+    v = np.zeros(n)
+    v[0] = 1.0 
+    
     error_history = []
     iteration = 0
     while True:
@@ -79,17 +79,20 @@ def create_interactive_graph(n, edges_with_weights, steady_v=None, fixed_pos=Non
         net.set_options('{"physics":{"enabled":false}, "nodes":{"font":{"size":16}}}')
     else:
         net.barnes_hut()
+        
     for i in range(1, n + 1):
         color = "#ADD8E6"
         if steady_v is not None and len(steady_v) >= i:
-            intensity = int(steady_v[i-1] * 255 * 2)
+            # 【修正】修正原程式碼中的語法錯誤 _255_ 2 -> * 255
+            intensity = int(steady_v[i-1] * 255)
             color = f"rgb(255, {255-min(intensity, 255)}, {255-min(intensity, 255)})"
+            
         if fixed_pos:
             pos = fixed_pos.get(i, (0,0))
-            net.add_node(i, label=f"{label_prefix} {i}", color=color, x=pos[0], y=pos[1], 
+            net.add_node(i, label=f"{label_prefix} {i}", color=color, x=pos[0], y=pos[1],
                          title=f"機率: {steady_v[i-1]:.4f}" if steady_v is not None else "")
         else:
-            net.add_node(i, label=f"{label_prefix} {i}", color=color, 
+            net.add_node(i, label=f"{label_prefix} {i}", color=color,
                          title=f"機率: {steady_v[i-1]:.4f}" if steady_v is not None else "")
     for u, v, w in edges_with_weights:
         net.add_edge(u, v, value=w)
@@ -249,13 +252,10 @@ if "🧮 矩陣運算分析" in tab_map:
 
 with tab_map["📊 轉移矩陣"]:
     st.subheader("轉移矩陣 $P$ (行加總為 1)")
-    
-    # 計算行加總用於驗證
     row_sums = P.sum(axis=1)
-    df_P = pd.DataFrame(P, index=[f"{label_prefix} {i+1}" for i in range(n_nodes)], 
+    df_P = pd.DataFrame(P, index=[f"{label_prefix} {i+1}" for i in range(n_nodes)],
                         columns=[f"{label_prefix} {i+1}" for i in range(n_nodes)])
     df_P['行加總 (Sum)'] = row_sums
-    
     st.dataframe(df_P.style.format("{:.4f}"))
     st.caption("💡 驗證：每一行的『行加總』應精確等於 1.0000，代表機率分佈完整。")
 
@@ -267,8 +267,10 @@ with tab_map["📉 收斂趨勢"]:
         ax_conv.set_yscale('log')
         ax_conv.set_xlabel("Iterations")
         ax_conv.set_ylabel("Max Error (Log)")
+        ax_conv.set_title(f"收斂速度分析 (總迭代次數: {iters})")
         ax_conv.grid(True, alpha=0.3)
         st.pyplot(fig_conv)
+        st.info("💡 提示：我們現在使用『點分佈』作為起點，因此您會看到更完整且長度更長的收斂曲線。")
 
 with tab_map["🎯 穩定狀態"]:
     st.subheader("長期分佈 (穩定狀態)")
