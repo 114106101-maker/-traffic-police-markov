@@ -7,92 +7,28 @@ from pyvis.network import Network
 import streamlit.components.v1 as components
 import time
 
-# =================================================================================================
-# 1. 視覺風格與 CSS 深度優化
-# =================================================================================================
+# =======================================================================================
+# 1. 視覺風格與 CSS (維持優化後的現代化界面)
+# =======================================================================================
 def apply_custom_style():
     st.markdown("""
         <style>
-        /* 全局背景與字體 */
-        .stApp { background-color: #fdfdfd; }
-        
-        /* 模式選擇器容器 */
-        .mode-selector { 
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); 
-            padding: 25px; 
-            border-radius: 20px; 
-            border: 1px solid #dee2e6; 
-            margin-bottom: 30px; 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-            text-align: center;
-        }
-        
-        /* KPI 卡片樣式 */
-        [data-testid="stMetric"] { 
-            background-color: #ffffff !important; 
-            padding: 20px !important; 
-            border-radius: 15px !important; 
-            box-shadow: 0 8px 20px rgba(0,0,0,0.08) !important; 
-            border: 1px solid #f0f0f0 !important; 
-            transition: transform 0.3s ease;
-        }
-        [data-testid="stMetric"]:hover { transform: translateY(-5px); }
-        
-        /* 按鈕優化 */
-        .stButton>button { 
-            width: 100%; 
-            border-radius: 12px !important; 
-            background: linear-gradient(45deg, #007bff, #0056b3) !important; 
-            color: white !important; 
-            font-weight: 600 !important; 
-            border: none !important; 
-            padding: 12px 20px !important; 
-            box-shadow: 0 4px 10px rgba(0,123,255,0.3) !important;
-        }
+        .main { background-color: #fbfbfb; }
+        .stMetric { background-color: #ffffff !important; padding: 15px !important; border-radius: 12px !important; box-shadow: 0 4px 6px rgba(0,0,0,0.05) !important; border: 1px solid #eee !important; }
+        .stButton>button { width: 100%; border-radius: 12px !important; background: linear-gradient(45deg, #007bff, #0056b3) !important; color: white !important; font-weight: 600 !important; border: none !important; padding: 12px 20px !important; box-shadow: 0 4px 10px rgba(0,123,255,0.3) !important; }
         .stButton>button:hover { background: linear-gradient(45deg, #0056b3, #004085) !important; }
-        
-        /* 重置按鈕特殊色 */
-        div.stButton > div.st-emotion-cache-micr9v > button { 
-            background: linear-gradient(45deg, #ff4b2b, #ff416c) !important; 
-            box-shadow: 0 4px 10px rgba(255,75,43,0.3) !important;
-        }
-
-        /* 計算詳情與路徑紀錄框 */
-        .calc-box { 
-            background-color: #ffffff; 
-            padding: 20px; 
-            border-left: 6px solid #007bff; 
-            border-radius: 8px; 
-            margin: 15px 0; 
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-            font-size: 1.1rem;
-        }
-        .path-box { 
-            background-color: #f1f3f5; 
-            padding: 15px; 
-            border-radius: 12px; 
-            border: 2px dashed #adb5bd; 
-            font-family: 'Consolas', 'Monaco', monospace; 
-            color: #495057;
-            line-height: 1.6;
-        }
-        
-        /* 分頁標籤美化 */
-        .stTabs [data-baseweb="tab-list"] { gap: 12px; }
-        .stTabs [data-baseweb="tab"] { 
-            background-color: #fff; 
-            border: 1px solid #dee2e6; 
-            border-radius: 8px 8px 0 0;
-            padding: 10px 20px;
-            transition: all 0.2s ease;
-        }
-        .stTabs [data-baseweb="tab"]:hover { border-color: #007bff; color: #007bff; }
+        div.stButton > div.st-emotion-cache-micr9v > button { background: linear-gradient(45deg, #ff4b2b, #ff416c) !important; box-shadow: 0 4px 10px rgba(255,75,43,0.3) !important; }
+        div[data-testid="stExpander"] { border: none !important; box-shadow: 0 2px 8px rgba(0,0,0,0.05); background-color: white; border-radius: 10px; }
+        .mode-selector { background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); padding: 25px; border-radius: 20px; border: 1px solid #dee2e6; margin-bottom: 30px; text-align: center; }
+        .calc-box { background-color: #ffffff; padding: 20px; border-left: 6px solid #007bff; border-radius: 8px; margin: 15px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .path-box { background-color: #f1f3f5; padding: 15px; border-radius: 12px; border: 2px dashed #adb5bd; font-family: 'Consolas', monospace; color: #495057; }
+        .stTabs [data-baseweb="tab"] { background-color: #fff; border: 1px solid #dee2e6; border-radius: 8px 8px 0 0; padding: 10px 20px; }
         </style>
     """, unsafe_allow_html=True)
 
-# =================================================================================================
-# 2. 數學核心邏輯 (完全維持原樣)
-# =================================================================================================
+# =======================================================================================
+# 2. 數學核心邏輯 (維持原樣)
+# =======================================================================================
 def build_transition_matrix(n, edges_with_weights, allow_self_loop=True):
     P = np.zeros((n, n))
     adj = {i: [] for i in range(1, n + 1)}
@@ -126,9 +62,9 @@ def find_steady_state(P, threshold):
         iteration += 1
     return v, iteration, error_history
 
-# =================================================================================================
-# 3. 視覺化模組 (完全維持原樣)
-# =================================================================================================
+# =======================================================================================
+# 3. 視覺化模組
+# =======================================================================================
 def create_interactive_graph(n, edges_with_weights, steady_v=None, fixed_pos=None, label_prefix="位置"):
     net = Network(height="500px", width="100%", bgcolor="#ffffff", font_color="black")
     if fixed_pos:
@@ -153,26 +89,23 @@ def create_interactive_graph(n, edges_with_weights, steady_v=None, fixed_pos=Non
     return "graph.html"
 
 def draw_simulation_frame(n, edges, current_node, steady_v, fixed_pos=None):
+    # 【恢復原狀】完全恢復至最原始的繪圖設定
     G = nx.Graph()
     G.add_nodes_from(range(1, n + 1))
     G.add_edges_from([(u, v) for u, v, w in edges])
     pos = fixed_pos if fixed_pos else nx.spring_layout(G, seed=42)
-    fig, ax = plt.subplots(figsize=(8, 3), dpi=100)
+    fig, ax = plt.subplots(figsize=(6, 4), dpi=100) # 恢復原本 6x4
     node_colors = ["#FFFF00" if i == current_node else "#ADD8E6" for i in range(1, n + 1)]
     nx.draw(G, pos, with_labels=True, node_color=node_colors, node_size=600, edge_color="#D3D3D3", font_size=10, font_weight='bold', ax=ax)
-    if fixed_pos:
-        ax.set_xlim(0, (n+1)*100)
-        ax.set_ylim(-50, 50)
-    plt.axis('off')
+    plt.axis('off') # 不再設定 xlim, ylim，恢復原有的自動縮放
     return fig
 
-# =================================================================================================
+# =======================================================================================
 # 4. Streamlit 主界面
-# =================================================================================================
+# =======================================================================================
 st.set_page_config(page_title="Markov Analysis Suite Pro", layout="wide")
 apply_custom_style()
 
-# [1] 頂層模式選擇 (優化視覺封裝)
 st.markdown('<div class="mode-selector">', unsafe_allow_html=True)
 st.markdown("<h2 style='text-align: center; color: #2c3e50;'>🛠️ 系統分析模式選擇</h2>", unsafe_allow_html=True)
 mode = st.radio("請選擇您要分析的對象：", ["👮 交通警察巡邏 (Police Patrol)", "🐁 8格迷宮老鼠 (Mouse Maze)"], horizontal=True, label_visibility="collapsed")
@@ -186,7 +119,6 @@ INITIAL_TOPO = {
 if 'topo_data' not in st.session_state:
     st.session_state.topo_data = INITIAL_TOPO.copy()
 
-# [2] 側邊欄配置 (保持原有邏輯)
 st.sidebar.header("⚙️ 配置中心")
 if mode == "👮 交通警察巡邏 (Police Patrol)":
     with st.sidebar.expander("📍 佈局設定", expanded=True):
@@ -221,7 +153,6 @@ if mode == "👮 交通警察巡邏 (Police Patrol)":
                         curr_max = max(curr_max, int(u), int(v))
                     except: pass
             st.session_state.topo_data = {'n_nodes': max(curr_max, 2), 'edges': temp_edges, 'fixed_pos': None, 'allow_self_loop': True}
-
 elif mode == "🐁 8格迷宮老鼠 (Mouse Maze)":
     with st.sidebar.expander("📍 迷宮設定", expanded=True):
         st.write("此模式為固定線性迷宮")
@@ -238,7 +169,6 @@ if st.sidebar.button("🔄 一鍵重置所有配置", key="reset_btn"):
     st.session_state.topo_data = INITIAL_TOPO.copy()
     st.rerun()
 
-# 核心計算
 n_nodes = st.session_state.topo_data['n_nodes']
 edges_with_weights = st.session_state.topo_data['edges']
 fixed_pos = st.session_state.topo_data['fixed_pos']
@@ -248,13 +178,11 @@ label_prefix = "路口" if mode == "👮 交通警察巡邏 (Police Patrol)" els
 P, adj = build_transition_matrix(n_nodes, edges_with_weights, allow_self_loop=allow_self)
 steady_v, iters, error_hist = find_steady_state(P, threshold)
 
-# [3] 狀態顯示區域 (KPI Dashboard) - 視覺化強化
 m_col1, m_col2, m_col3 = st.columns(3)
 m_col1.metric("路口/位置規模", f"{n_nodes} 處")
 m_col2.metric("迭代次數", f"{iters} 次")
 m_col3.metric("系統狀態", "穩定" if iters < 10000 else "未收斂")
 
-# [4] 分頁設定
 tabs_list = ["🌐 互動拓撲圖", "⏱️ 隨機行走模擬", "📊 轉移矩陣", "📉 收斂趨勢", "🎯 穩定狀態", "📝 計算詳情", "📐 數學原理"]
 if mode == "🐁 8格迷宮老鼠 (Mouse Maze)":
     tabs_list.insert(3, "🧮 矩陣運算分析")
