@@ -9,7 +9,7 @@ import time
 
 # ==================================================================================
 # 1. 視覺風格與 CSS
-# ==================================================================================
+# ===================================================================================
 def apply_custom_style():
     st.markdown("""
         <style>
@@ -61,9 +61,9 @@ def find_steady_state(P, threshold):
         iteration += 1
     return v, iteration, error_history
 
-# ==================================================================================
+# ===================================================================================
 # 3. 視覺化模組
-# ==================================================================================
+# ===================================================================================
 def create_interactive_graph(n, edges_with_weights, steady_v=None, fixed_pos=None, label_prefix="位置"):
     net = Network(height="500px", width="100%", bgcolor="#ffffff", font_color="black")
     if fixed_pos:
@@ -102,12 +102,13 @@ def draw_simulation_frame(n, edges, current_node, steady_v, fixed_pos=None):
     plt.axis('off')
     return fig
 
-# ==================================================================================
+# ===================================================================================
 # 4. Streamlit 主界面
-# ==================================================================================
+# ===================================================================================
 st.set_page_config(page_title="Markov Analysis Suite Pro", layout="wide")
 apply_custom_style()
 
+# [1] 頂層模式選擇
 st.markdown('<div class="mode-selector">', unsafe_allow_html=True)
 st.subheader("🛠️ 選擇分析模式")
 mode = st.radio("請選擇您要分析的對象：", ["👮 交通警察巡邏 (Police Patrol)", "🐁 8格迷宮老鼠 (Mouse Maze)"], horizontal=True)
@@ -119,6 +120,7 @@ if 'topo_data' not in st.session_state:
         'fixed_pos': {1: (0, 1), 2: (1, 1), 3: (0, 0), 4: (1, 0), 5: (0.5, 0.5)}, 'allow_self_loop': True
     }
 
+# [2] 側邊欄配置
 st.sidebar.header("⚙️ 配置中心")
 if mode == "👮 交通警察巡邏 (Police Patrol)":
     with st.sidebar.expander("📍 佈局設定", expanded=True):
@@ -174,10 +176,15 @@ label_prefix = "路口" if mode == "👮 交通警察巡邏 (Police Patrol)" els
 P, adj = build_transition_matrix(n_nodes, edges_with_weights, allow_self_loop=allow_self)
 steady_v, iters, error_hist = find_steady_state(P, threshold)
 
-# --- 分頁 ---
+# [3] 恢復原有的狀態顯示區域 (KPI Dashboard)
+m_col1, m_col2, m_col3 = st.columns(3)
+m_col1.metric("路口/位置規模", f"{n_nodes} 處")
+m_col2.metric("迭代次數", f"{iters} 次")
+m_col3.metric("系統狀態", "穩定" if iters < 10000 else "未收斂")
+
+# [4] 分頁設定
 tabs_list = ["🌐 互動拓撲圖", "⏱️ 隨機行走模擬", "📊 轉移矩陣", "📉 收斂趨勢", "🎯 穩定狀態", "📝 計算詳情", "📐 數學原理"]
 if mode == "🐁 8格迷宮老鼠 (Mouse Maze)":
-    # 將老鼠特有的運算分析插入到矩陣分頁之後
     tabs_list.insert(3, "🧮 矩陣運算分析")
 
 tab_objs = st.tabs(tabs_list)
@@ -252,7 +259,6 @@ with tab_map["🎯 穩定狀態"]:
 with tab_map["📝 計算詳情"]:
     st.subheader("🔍 數值計算過程解剖")
     calc_mode = st.selectbox("選擇計算類型", ["轉移矩陣元素 $P_{ij}$", "穩定狀態元素 $\\pi_i$", "矩陣乘法 $(P^2)_{ij}$"])
-    
     if calc_mode == "轉移矩陣元素 $P_{ij}$":
         c1, c2 = st.columns(2)
         with c1: row = st.number_input("選擇行 (起點 $i$)", 1, n_nodes, 1)
@@ -267,7 +273,6 @@ with tab_map["📝 計算詳情"]:
         st.latex(f"P_{{{row},{col}}} = \\frac{{\\text{{Weight}}_{{{row} \\to {col}}}}}{{\\sum \\text{{Weights from {row}}} + \\text{{Self-loop}}}} ")
         st.latex(f"P_{{{row},{col}}} = \\frac{{{weight_ij:.1f}}}{{{total_w - self_w:.1f} + {self_w:.1f}}} = {res:.4f}")
         st.markdown('</div>', unsafe_allow_html=True)
-
     elif calc_mode == "穩定狀態元素 $\\pi_i$":
         node = st.number_input("選擇位置 $i$", 1, n_nodes, 1)
         sum_terms, formula_terms = [], []
@@ -279,13 +284,11 @@ with tab_map["📝 計算詳情"]:
         st.latex(f"\\pi_{{{node}}} = \\sum_{{j=1}}^{{{n_nodes}}} (\\pi_{{j}} \\times P_{{j,{node}}})")
         st.latex(f"\\pi_{{{node}}} = {' + '.join(formula_terms)} = {sum(sum_terms):.4f}")
         st.markdown('</div>', unsafe_allow_html=True)
-
     elif calc_mode == "矩陣乘法 $(P^2)_{ij}$":
         c1, c2 = st.columns(2)
         with c1: r = st.number_input("選擇行 $i$", 1, n_nodes, 1)
         with c2: c = st.number_input("選擇列 $j$", 1, n_nodes, 1)
-        terms = []
-        formula_terms = []
+        terms, formula_terms = [], []
         for k in range(1, n_nodes + 1):
             val = P[r-1, k-1] * P[k-1, c-1]
             terms.append(val)
