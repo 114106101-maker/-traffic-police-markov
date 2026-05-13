@@ -7,9 +7,9 @@ from pyvis.network import Network
 import streamlit.components.v1 as components
 import time
 
-# ========================================================================================
+# ============================================================================================
 # 1. 視覺風格與 CSS
-# ========================================================================================
+# ===========================================================================================
 def apply_custom_style():
     st.markdown("""
         <style>
@@ -26,9 +26,9 @@ def apply_custom_style():
         </style>
     """, unsafe_allow_html=True)
 
-# =======================================================================================
+# ===========================================================================================
 # 2. 數學核心邏輯
-# ======================================================================================
+# ==========================================================================================
 def build_transition_matrix(n, edges_with_weights, allow_self_loop=True):
     P = np.zeros((n, n))
     adj = {i: [] for i in range(1, n + 1)}
@@ -62,12 +62,13 @@ def find_steady_state(P, threshold):
         iteration += 1
     return v, iteration, error_history
 
-# =======================================================================================
+# ===========================================================================================
 # 3. 視覺化模組
-# ========================================================================================
+# ==========================================================================================
 def create_interactive_graph(n, edges_with_weights, steady_v=None, fixed_pos=None, label_prefix="位置"):
     net = Network(height="500px", width="100%", bgcolor="#ffffff", font_color="black")
     if fixed_pos:
+        # 強制關閉物理引擎，防止節點彈開
         net.set_options('{"physics":{"enabled":false}, "nodes":{"font":{"size":16}}}')
     else:
         net.barnes_hut()
@@ -76,9 +77,11 @@ def create_interactive_graph(n, edges_with_weights, steady_v=None, fixed_pos=Non
         if steady_v is not None and len(steady_v) >= i:
             intensity = int(steady_v[i-1] * 255 * 2)
             color = f"rgb(255, {255-min(intensity, 255)}, {255-min(intensity, 255)})"
+        
         if fixed_pos:
             pos = fixed_pos.get(i, (0,0))
-            net.add_node(i, label=f"{label_prefix} {i}", color=color, x=pos[0]*100, y=pos[1]*100, 
+            # 直接使用 fixed_pos 提供的數值，不再乘以 100
+            net.add_node(i, label=f"{label_prefix} {i}", color=color, x=pos[0], y=pos[1], 
                          title=f"機率: {steady_v[i-1]:.4f}" if steady_v is not None else "")
         else:
             net.add_node(i, label=f"{label_prefix} {i}", color=color, 
@@ -93,15 +96,19 @@ def draw_simulation_frame(n, edges, current_node, steady_v, fixed_pos=None):
     G.add_nodes_from(range(1, n + 1))
     G.add_edges_from([(u, v) for u, v, w in edges])
     pos = fixed_pos if fixed_pos else nx.spring_layout(G, seed=42)
-    fig, ax = plt.subplots(figsize=(6, 4), dpi=100)
+    fig, ax = plt.subplots(figsize=(8, 3), dpi=100)
     node_colors = ["#FFFF00" if i == current_node else "#ADD8E6" for i in range(1, n + 1)]
     nx.draw(G, pos, with_labels=True, node_color=node_colors, node_size=600, edge_color="#D3D3D3", font_size=10, font_weight='bold', ax=ax)
+    # 設定座標軸範圍，防止畫面在動畫中跳動
+    if fixed_pos:
+        ax.set_xlim(0, (n+1)*100)
+        ax.set_ylim(-50, 50)
     plt.axis('off')
     return fig
 
-# ========================================================================================
+# ===========================================================================================
 # 4. Streamlit 主界面
-# ========================================================================================
+# ===========================================================================================
 st.set_page_config(page_title="Markov Analysis Suite Pro", layout="wide")
 apply_custom_style()
 
@@ -112,7 +119,7 @@ st.markdown('</div>', unsafe_allow_html=True)
 
 INITIAL_TOPO = {
     'n_nodes': 5, 'edges': [(1, 2, 1.0), (2, 4, 1.0), (4, 3, 1.0), (3, 1, 1.0), (1, 5, 1.0), (2, 5, 1.0), (3, 5, 1.0), (4, 5, 1.0)],
-    'fixed_pos': {1: (0, 1), 2: (1, 1), 3: (0, 0), 4: (1, 0), 5: (0.5, 0.5)}, 'allow_self_loop': True
+    'fixed_pos': {1: (0, 100), 2: (100, 100), 3: (0, 0), 4: (100, 0), 5: (50, 50)}, 'allow_self_loop': True
 }
 
 if 'topo_data' not in st.session_state:
@@ -157,7 +164,8 @@ elif mode == "🐁 8格迷宮老鼠 (Mouse Maze)":
     with st.sidebar.expander("📍 迷宮設定", expanded=True):
         st.write("此模式為固定線性迷宮")
         edges = [(i, i+1, 1.0) for i in range(1, 8)]
-        fixed_pos = {i: (i * 0.1, 0.5) for i in range(1, 9)}
+        # 【修正】將座標間距大幅拉開 (x軸 100, 200 ... 800)
+        fixed_pos = {i: (i * 100, 0) for i in range(1, 9)}
         st.session_state.topo_data = {'n_nodes': 8, 'edges': edges, 'fixed_pos': fixed_pos, 'allow_self_loop': False}
 
 with st.sidebar.expander("📈 數學精度設定", expanded=False):
@@ -207,33 +215,21 @@ with tab_map["⏱️ 隨機行走模擬"]:
     with col_map:
         map_placeholder = st.empty()
         status_placeholder = st.empty()
-        path_placeholder = st.empty() # [新增] 路徑紀錄顯示區
-        
+        path_placeholder = st.empty()
         if run_btn:
             current = start_node
-            visited_path = [current] # [新增] 初始化路徑紀錄
-            
+            visited_path = [current]
             for i in range(sim_steps):
                 fig = draw_simulation_frame(n_nodes, edges_with_weights, current, steady_v, fixed_pos)
                 map_placeholder.pyplot(fig)
                 status_placeholder.markdown(f"**狀態**：第 {i+1} 步 $\rightarrow$ 位於 **{label_prefix} {current}**")
-                
-                # [新增] 更新實時路徑紀錄
                 path_str = " $\rightarrow$ ".join(map(str, visited_path))
-                path_placeholder.markdown(f"""
-                    <div class="path-box">
-                        <strong>🚶 實時路徑紀錄：</strong><br>
-                        {path_str}
-                    </div>
-                """, unsafe_allow_html=True)
-                
+                path_placeholder.markdown(f'<div class="path-box"><strong>🚶 實時路徑紀錄：</strong><br>{path_str}</div>', unsafe_allow_html=True)
                 probs = P[current-1, :]
                 current = np.random.choice(range(1, n_nodes + 1), p=probs/np.sum(probs))
                 visited_path.append(current)
                 time.sleep(speed)
                 plt.close(fig)
-            
-            # 模擬結束後顯示最終路徑
             st.success(f"✅ 模擬結束。完整路徑：{' $\rightarrow$ '.join(map(str, visited_path))}")
 
 if "🧮 矩陣運算分析" in tab_map:
