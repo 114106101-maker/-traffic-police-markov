@@ -286,7 +286,7 @@ with tab_map["📉 收斂趨勢"]:
         ax_conv.set_yscale('log')
         ax_conv.set_xlabel("Iterations")
         ax_conv.set_ylabel("Max Error (Log)")
-        ax_conv.set_title(f"收斂趨勢分析 (N={user_iters})")
+        ax_conv.set_title(f"Convergence trend analysis (N={user_iters})")
         ax_conv.grid(True, which="both", ls="-", alpha=0.3)
         st.pyplot(fig_conv)
         st.metric("最終 Max Error", f"{error_hist_user[-1]:.8f}")
