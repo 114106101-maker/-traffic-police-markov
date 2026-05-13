@@ -8,8 +8,8 @@ import streamlit.components.v1 as components
 import time
 
 # ==========================================================================================
-# 1. 視覺風格與 CSS
-# ==========================================================================================
+# 1. 視覺風格與 CSS (完整保留)
+# ===========================================================================================
 def apply_custom_style():
     st.markdown("""
         <style>
@@ -48,41 +48,40 @@ def build_transition_matrix(n, edges_with_weights, allow_self_loop=True):
             P[i-1, v-1] = w / total_weight
     return P, adj
 
-def find_steady_state_fixed(P, threshold=1e-7):
-    """計算最終穩定狀態 (用於圖表顯示)"""
+def find_steady_state(P, threshold):
+    """計算直到收斂的穩定狀態 (原功能保留)"""
     n = P.shape[0]
     if n == 0: return np.array([]), 0, []
     v = np.zeros(n)
-    v[0] = 1.0
+    v[0] = 1.0 # 使用點分佈增加收斂過程的可視化長度
+    error_history = []
     iteration = 0
     while True:
         v_next = np.dot(v, P)
-        if np.max(np.abs(v_next - v)) < threshold or iteration > 10000:
+        error = np.max(np.abs(v_next - v))
+        error_history.append(error)
+        if error < threshold or iteration > 10000:
             break
         v = v_next
         iteration += 1
-    return v, iteration
+    return v, iteration, error_history
 
-def get_convergence_history(P, max_iters):
-    """根據使用者設定的次數，計算每一代的誤差"""
+def get_convergence_history_fixed(P, max_iters):
+    """【新增功能】精確執行 N 次迭代並回傳誤差紀錄，不因閾值提前停止"""
     n = P.shape[0]
-    if n == 0: return [], []
+    if n == 0: return []
     v = np.zeros(n)
     v[0] = 1.0
     error_history = []
-    v_history = []
-    
     for i in range(max_iters):
         v_next = np.dot(v, P)
         error = np.max(np.abs(v_next - v))
         error_history.append(error)
-        v_history.append(v_next)
         v = v_next
-        
-    return error_history, v_history
+    return error_history
 
 # ==========================================================================================
-# 3. 視覺化模組
+# 3. 視覺化模組 (完整保留)
 # ==========================================================================================
 def create_interactive_graph(n, edges_with_weights, steady_v=None, fixed_pos=None, label_prefix="位置"):
     net = Network(height="500px", width="100%", bgcolor="#ffffff", font_color="black")
@@ -179,6 +178,9 @@ elif mode == "🐁 8格迷宮老鼠 (Mouse Maze)":
         fixed_pos = {i: (i * 100, 0) for i in range(1, 9)}
         st.session_state.topo_data = {'n_nodes': 8, 'edges': edges, 'fixed_pos': fixed_pos, 'allow_self_loop': False}
 
+with st.sidebar.expander("📈 數學精度設定", expanded=False):
+    threshold = st.number_input("收斂閾值", value=0.000001, format="%.7f")
+
 st.sidebar.markdown("---")
 st.sidebar.subheader("🛠️ 系統管理")
 if st.sidebar.button("🔄 一鍵重置所有配置", key="reset_btn"):
@@ -192,13 +194,12 @@ allow_self = st.session_state.topo_data['allow_self_loop']
 label_prefix = "路口" if mode == "👮 交通警察巡邏 (Police Patrol)" else "位置"
 
 P, adj = build_transition_matrix(n_nodes, edges_with_weights, allow_self_loop=allow_self)
-# 預先計算一個完整的穩定狀態用於其他頁面顯示
-steady_v, total_iters_to_conv = find_steady_state_fixed(P)
+steady_v, iters, error_hist_auto = find_steady_state(P, threshold)
 
 m_col1, m_col2, m_col3 = st.columns(3)
 m_col1.metric("路口/位置規模", f"{n_nodes} 處")
-m_col2.metric("完全收斂迭代", f"{total_iters_to_conv} 次")
-m_col3.metric("系統狀態", "穩定")
+m_col2.metric("自動收斂次數", f"{iters} 次")
+m_col3.metric("系統狀態", "穩定" if iters < 10000 else "未收斂")
 
 tabs_list = ["🌐 互動拓撲圖", "⏱️ 隨機行走模擬", "📊 轉移矩陣", "📉 收斂趨勢", "🎯 穩定狀態", "📝 計算詳情", "📐 數學原理"]
 if mode == "🐁 8格迷宮老鼠 (Mouse Maze)":
@@ -264,33 +265,31 @@ with tab_map["📊 轉移矩陣"]:
                         columns=[f"{label_prefix} {i+1}" for i in range(n_nodes)])
     df_P['行加總 (Sum)'] = row_sums
     st.dataframe(df_P.style.format("{:.4f}"))
-    st.caption("💡 驗證：每一行的『行加總』應精確等於 1.0000。")
+    st.caption("💡 驗證：每一行的『行加總』應精確等於 1.0000，代表機率分佈完整。")
 
 with tab_map["📉 收斂趨勢"]:
     st.subheader("收斂過程分析")
     
-    # --- 【關鍵修改：可調整的迭代次數】 ---
-    col_slider, col_info = st.columns([1, 1])
-    with col_slider:
+    # --- 【新增功能：可調整的迭代次數】 ---
+    col_ctrl, col_info = st.columns([1, 1])
+    with col_ctrl:
         user_iters = st.slider("調整迭代次數 (Iterations)", 1, 500, 100)
     with col_info:
-        st.info(f"目前設定執行 {user_iters} 次迭代。當曲線趨於平緩時，代表系統已達到穩定狀態。")
-
-    # 根據滑桿數值即時計算誤差紀錄
-    error_hist, v_hist = get_convergence_history(P, user_iters)
+        st.info(f"目前設定執行 {user_iters} 次迭代。您可以觀察 Max Error 如何隨著次數增加而下降。")
     
-    if len(error_hist) > 0:
+    # 使用新函數計算誤差，確保不會因為 threshold 而提前停止
+    error_hist_user = get_convergence_history_fixed(P, user_iters)
+    
+    if len(error_hist_user) > 0:
         fig_conv, ax_conv = plt.subplots(figsize=(8, 4))
-        ax_conv.plot(error_hist, color='#007bff', lw=2, marker='o', markersize=2, alpha=0.8)
+        ax_conv.plot(error_hist_user, color='#007bff', lw=2, marker='o', markersize=2, alpha=0.8)
         ax_conv.set_yscale('log')
         ax_conv.set_xlabel("Iterations")
-        ax_conv.set_ylabel("Max Error (Log scale)")
-        ax_conv.set_title(f"Max Error vs. Iterations (N={user_iters})")
+        ax_conv.set_ylabel("Max Error (Log)")
+        ax_conv.set_title(f"收斂趨勢分析 (N={user_iters})")
         ax_conv.grid(True, which="both", ls="-", alpha=0.3)
         st.pyplot(fig_conv)
-        
-        # 顯示最後一次的誤差值
-        st.metric("最終 Max Error", f"{error_hist[-1]:.8f}")
+        st.metric("最終 Max Error", f"{error_hist_user[-1]:.8f}")
 
 with tab_map["🎯 穩定狀態"]:
     st.subheader("長期分佈 (穩定狀態)")
@@ -326,7 +325,7 @@ with tab_map["📝 計算詳情"]:
         st.markdown(f'<div class="calc-box">', unsafe_allow_html=True)
         st.latex(f"\\pi_{{{node}}} = \\sum_{{j=1}}^{{{n_nodes}}} (\\pi_{{j}} \\times P_{{j,{node}}})")
         st.latex(f"\\pi_{{{node}}} = {' + '.join(formula_terms)} = {sum(sum_terms):.4f}")
-        st.markdown(f'<div class="explain-box"><strong>💡 邏輯解析：</strong><br>長期來看，您處於{label_prefix} {node} 的機率，等於所有能到達這裡的節點機率與轉移機率之乘積總和。</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="explain-box"><strong>💡 邏輯解析：</strong><br>長期來看，您處於{label_prefix} {node} 的機率，等於「所有能到達這裡的節點 $j$」的機率 $\\pi_j$ 與轉移機率 $P_{j,node}$ 的乘積之總和。</div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
     elif calc_mode == "矩陣乘法 $(P^2)_{ij}$":
         c1, c2 = st.columns(2)
@@ -340,7 +339,7 @@ with tab_map["📝 計算詳情"]:
         st.markdown(f'<div class="calc-box">', unsafe_allow_html=True)
         st.latex(f"(P^2)_{{{r},{c}}} = \\sum_{{k=1}}^{{{n_nodes}}} (P_{{{r},{k}}} \\times P_{{{k},{c}}})")
         st.latex(f"(P^2)_{{{r},{c}}} = {' + '.join(formula_terms)} = {sum(terms):.4f}")
-        st.markdown(f'<div class="explain-box"><strong>💡 邏輯解析：</strong><br>這是在計算經過恰好 2 步從 {label_prefix} {r} 到達 {label_prefix} {c} 的機率。</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="explain-box"><strong>💡 邏輯解析：</strong><br>這是在計算「經過恰好 2 步」從 {label_prefix} {r} 到達 {label_prefix} {c} 的機率。</div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
 with tab_map["📐 數學原理"]:
