@@ -140,8 +140,8 @@ if 'topo_data' not in st.session_state:
 st.sidebar.header("⚙️ 配置中心")
 if mode == "👮 交通警察巡邏 (Police Patrol)":
     with st.sidebar.expander("📍 佈局設定", expanded=True):
-        layout_type = st.selectbox("選擇佈局", ["照片佈局 (5節點)", "3x4 網格", "自定義網格", "手動輸入"])
-        if layout_type == "照片佈局 (5節點)":
+        layout_type = st.selectbox("選擇佈局", ["(5節點)佈局", "3x4 網格", "自定義網格", "手動輸入"])
+        if layout_type == "(5節點)佈局":
             st.session_state.topo_data = INITIAL_TOPO.copy()
         elif layout_type == "3x4 網格":
             edges = []
