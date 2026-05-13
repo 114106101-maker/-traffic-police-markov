@@ -7,9 +7,9 @@ from pyvis.network import Network
 import streamlit.components.v1 as components
 import time
 
-# ==================================================================================
+# ========================================================================================
 # 1. 視覺風格與 CSS
-# ===================================================================================
+# =======================================================================================
 def apply_custom_style():
     st.markdown("""
         <style>
@@ -17,15 +17,17 @@ def apply_custom_style():
         .stMetric { background-color: #ffffff; padding: 15px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #eee; }
         .stButton>button { width: 100%; border-radius: 25px; background-color: #007bff; color: white; font-weight: bold; border: none; padding: 10px 20px; transition: all 0.3s ease; }
         .stButton>button:hover { background-color: #0056b3; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .reset-btn > div > button { background-color: #dc3545 !important; color: white !important; }
+        .reset-btn > div > button:hover { background-color: #a71d2a !important; }
         div[data-testid="stExpander"] { border: none !important; box-shadow: 0 2px 8px rgba(0,0,0,0.05); background-color: white; border-radius: 10px; }
         .mode-selector { background-color: #e9ecef; padding: 20px; border-radius: 15px; border: 2px solid #dee2e6; margin-bottom: 20px; }
         .calc-box { background-color: #fff; padding: 15px; border-left: 5px solid #007bff; border-radius: 5px; margin: 10px 0; }
         </style>
     """, unsafe_allow_html=True)
 
-# ==================================================================================
+# ========================================================================================
 # 2. 數學核心邏輯
-# ==================================================================================
+# =======================================================================================
 def build_transition_matrix(n, edges_with_weights, allow_self_loop=True):
     P = np.zeros((n, n))
     adj = {i: [] for i in range(1, n + 1)}
@@ -61,9 +63,9 @@ def find_steady_state(P, threshold):
         iteration += 1
     return v, iteration, error_history
 
-# ===================================================================================
+# ========================================================================================
 # 3. 視覺化模組
-# ===================================================================================
+# =======================================================================================
 def create_interactive_graph(n, edges_with_weights, steady_v=None, fixed_pos=None, label_prefix="位置"):
     net = Network(height="500px", width="100%", bgcolor="#ffffff", font_color="black")
     if fixed_pos:
@@ -102,11 +104,19 @@ def draw_simulation_frame(n, edges, current_node, steady_v, fixed_pos=None):
     plt.axis('off')
     return fig
 
-# ===================================================================================
+# ========================================================================================
 # 4. Streamlit 主界面
-# ===================================================================================
+# =======================================================================================
 st.set_page_config(page_title="Markov Analysis Suite Pro", layout="wide")
 apply_custom_style()
+
+# --- 初始狀態定義 ---
+INITIAL_TOPO = {
+    'n_nodes': 5, 
+    'edges': [(1, 2, 1.0), (2, 4, 1.0), (4, 3, 1.0), (3, 1, 1.0), (1, 5, 1.0), (2, 5, 1.0), (3, 5, 1.0), (4, 5, 1.0)],
+    'fixed_pos': {1: (0, 1), 2: (1, 1), 3: (0, 0), 4: (1, 0), 5: (0.5, 0.5)}, 
+    'allow_self_loop': True
+}
 
 # [1] 頂層模式選擇
 st.markdown('<div class="mode-selector">', unsafe_allow_html=True)
@@ -115,10 +125,7 @@ mode = st.radio("請選擇您要分析的對象：", ["👮 交通警察巡邏 (
 st.markdown('</div>', unsafe_allow_html=True)
 
 if 'topo_data' not in st.session_state:
-    st.session_state.topo_data = {
-        'n_nodes': 5, 'edges': [(1, 2, 1.0), (2, 4, 1.0), (4, 3, 1.0), (3, 1, 1.0), (1, 5, 1.0), (2, 5, 1.0), (3, 5, 1.0), (4, 5, 1.0)],
-        'fixed_pos': {1: (0, 1), 2: (1, 1), 3: (0, 0), 4: (1, 0), 5: (0.5, 0.5)}, 'allow_self_loop': True
-    }
+    st.session_state.topo_data = INITIAL_TOPO.copy()
 
 # [2] 側邊欄配置
 st.sidebar.header("⚙️ 配置中心")
@@ -126,7 +133,7 @@ if mode == "👮 交通警察巡邏 (Police Patrol)":
     with st.sidebar.expander("📍 佈局設定", expanded=True):
         layout_type = st.selectbox("選擇佈局", ["照片佈局 (5節點)", "3x4 網格", "自定義網格", "手動輸入"])
         if layout_type == "照片佈局 (5節點)":
-            st.session_state.topo_data = {'n_nodes': 5, 'edges': [(1, 2, 1.0), (2, 4, 1.0), (4, 3, 1.0), (3, 1, 1.0), (1, 5, 1.0), (2, 5, 1.0), (3, 5, 1.0), (4, 5, 1.0)], 'fixed_pos': {1: (0, 1), 2: (1, 1), 3: (0, 0), 4: (1, 0), 5: (0.5, 0.5)}, 'allow_self_loop': True}
+            st.session_state.topo_data = INITIAL_TOPO.copy()
         elif layout_type == "3x4 網格":
             edges = []
             for r in range(3):
@@ -166,6 +173,13 @@ elif mode == "🐁 8格迷宮老鼠 (Mouse Maze)":
 with st.sidebar.expander("📈 數學精度設定", expanded=False):
     threshold = st.number_input("收斂閾值", value=0.000001, format="%.7f")
 
+# [新增] 一鍵重置按鈕
+st.sidebar.markdown("---")
+st.sidebar.subheader("🛠️ 系統管理")
+if st.sidebar.button("🔄 一鍵重置所有配置", key="reset_btn"):
+    st.session_state.topo_data = INITIAL_TOPO.copy()
+    st.rerun()
+
 # --- 核心計算 ---
 n_nodes = st.session_state.topo_data['n_nodes']
 edges_with_weights = st.session_state.topo_data['edges']
@@ -176,7 +190,7 @@ label_prefix = "路口" if mode == "👮 交通警察巡邏 (Police Patrol)" els
 P, adj = build_transition_matrix(n_nodes, edges_with_weights, allow_self_loop=allow_self)
 steady_v, iters, error_hist = find_steady_state(P, threshold)
 
-# [3] 恢復原有的狀態顯示區域 (KPI Dashboard)
+# [3] 狀態顯示區域 (KPI Dashboard)
 m_col1, m_col2, m_col3 = st.columns(3)
 m_col1.metric("路口/位置規模", f"{n_nodes} 處")
 m_col2.metric("迭代次數", f"{iters} 次")
