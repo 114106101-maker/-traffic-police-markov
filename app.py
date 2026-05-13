@@ -43,7 +43,7 @@ def build_transition_matrix(n, edges_with_weights, allow_self_loop=True):
         P[i-1, i-1] = self_weight / total_weight
         for v, w in neighbors:
             P[i-1, v-1] = w / total_weight
-    return P, adj # 返回矩陣和鄰接表以便計算過程顯示
+    return P, adj
 
 def find_steady_state(P, threshold):
     n = P.shape[0]
@@ -90,6 +90,17 @@ def create_interactive_graph(n, edges_with_weights, steady_v=None, fixed_pos=Non
     
     net.save_graph("graph.html")
     return "graph.html"
+
+def draw_simulation_frame(n, edges, current_node, steady_v, fixed_pos=None):
+    G = nx.Graph()
+    G.add_nodes_from(range(1, n + 1))
+    G.add_edges_from([(u, v) for u, v, w in edges])
+    pos = fixed_pos if fixed_pos else nx.spring_layout(G, seed=42)
+    fig, ax = plt.subplots(figsize=(6, 4), dpi=100)
+    node_colors = ["#FFFF00" if i == current_node else "#ADD8E6" for i in range(1, n + 1)]
+    nx.draw(G, pos, with_labels=True, node_color=node_colors, node_size=600, edge_color="#D3D3D3", font_size=10, font_weight='bold', ax=ax)
+    plt.axis('off')
+    return fig
 
 # ==================================================================================
 # 4. Streamlit 主界面
@@ -153,20 +164,21 @@ elif mode == "🐁 8格迷宮老鼠 (Mouse Maze)":
 with st.sidebar.expander("📈 數學精度設定", expanded=False):
     threshold = st.number_input("收斂閾值", value=0.000001, format="%.7f")
 
+# --- 核心計算 ---
 n_nodes = st.session_state.topo_data['n_nodes']
 edges_with_weights = st.session_state.topo_data['edges']
 fixed_pos = st.session_state.topo_data['fixed_pos']
 allow_self = st.session_state.topo_data['allow_self_loop']
 label_prefix = "路口" if mode == "👮 交通警察巡邏 (Police Patrol)" else "位置"
 
-# 獲取矩陣與鄰接表
 P, adj = build_transition_matrix(n_nodes, edges_with_weights, allow_self_loop=allow_self)
 steady_v, iters, error_hist = find_steady_state(P, threshold)
 
 # --- 分頁 ---
-tabs_list = ["🌐 互動拓撲圖", "📊 轉移矩陣", "🎯 穩定狀態", "📝 計算詳情", "📐 數學原理"]
+tabs_list = ["🌐 互動拓撲圖", "⏱️ 隨機行走模擬", "📊 轉移矩陣", "📉 收斂趨勢", "🎯 穩定狀態", "📝 計算詳情", "📐 數學原理"]
 if mode == "🐁 8格迷宮老鼠 (Mouse Maze)":
-    tabs_list.insert(1, "🧮 矩陣運算分析")
+    # 將老鼠特有的運算分析插入到矩陣分頁之後
+    tabs_list.insert(3, "🧮 矩陣運算分析")
 
 tab_objs = st.tabs(tabs_list)
 tab_map = {name: tab for name, tab in zip(tabs_list, tab_objs)}
@@ -177,19 +189,41 @@ with tab_map["🌐 互動拓撲圖"]:
     with open(graph_html, 'r', encoding='utf-8') as f:
         components.html(f.read(), height=550)
 
+with tab_map["⏱️ 隨機行走模擬"]:
+    st.subheader("實時行走模擬")
+    col_ctrl, col_map = st.columns([1, 2])
+    with col_ctrl:
+        start_node = st.number_input("設定起點", 1, n_nodes, 1)
+        sim_steps = st.slider("模擬時長", 1, 100, 20)
+        speed = st.slider("動畫速度", 0.1, 1.0, 0.3)
+        run_btn = st.button("🚀 開始模擬")
+    with col_map:
+        map_placeholder = st.empty()
+        status_placeholder = st.empty()
+        if run_btn:
+            current = start_node
+            for i in range(sim_steps):
+                fig = draw_simulation_frame(n_nodes, edges_with_weights, current, steady_v, fixed_pos)
+                map_placeholder.pyplot(fig)
+                status_placeholder.markdown(f"**狀態**：第 {i+1} 步 $\rightarrow$ 位於 **{label_prefix} {current}**")
+                probs = P[current-1, :]
+                current = np.random.choice(range(1, n_nodes + 1), p=probs/np.sum(probs))
+                time.sleep(speed)
+                plt.close(fig)
+
 if "🧮 矩陣運算分析" in tab_map:
     with tab_map["🧮 矩陣運算分析"]:
         st.subheader("🎯 特定步數機率計算")
         col_input, col_res = st.columns([1, 2])
         with col_input:
-            start_node = st.number_input("設定起始位置 $v^{(0)}$", 1, n_nodes, 1)
-            target_node = st.number_input("設定目標位置", 1, n_nodes, 5)
-            steps = st.number_input("計算步數 $m$", 1, 100, 2)
+            start_node_m = st.number_input("設定起始位置 $v^{(0)}$", 1, n_nodes, 1)
+            target_node_m = st.number_input("設定目標位置", 1, n_nodes, 5)
+            steps_m = st.number_input("計算步數 $m$", 1, 100, 2)
         with col_res:
-            Pm = np.linalg.matrix_power(P, steps)
-            v0 = np.zeros(n_nodes); v0[start_node-1] = 1.0
+            Pm = np.linalg.matrix_power(P, steps_m)
+            v0 = np.zeros(n_nodes); v0[start_node_m-1] = 1.0
             vm = np.dot(v0, Pm)
-            st.metric(f"經過 {steps} 步後，在位置 {target_node} 的機率", f"{vm[target_node-1]:.4%}")
+            st.metric(f"經過 {steps_m} 步後，在位置 {target_node_m} 的機率", f"{vm[target_node_m-1]:.4%}")
             df_vm = pd.DataFrame({"位置": range(1, n_nodes+1), "機率": vm})
             st.bar_chart(df_vm.set_index("位置")["機率"])
 
@@ -198,50 +232,49 @@ with tab_map["📊 轉移矩陣"]:
     df_P = pd.DataFrame(P, index=[f"{label_prefix} {i+1}" for i in range(n_nodes)], columns=[f"{label_prefix} {i+1}" for i in range(n_nodes)])
     st.dataframe(df_P.style.format("{:.4f}"))
 
+with tab_map["📉 收斂趨勢"]:
+    st.subheader("收斂過程分析")
+    if len(error_hist) > 0:
+        fig_conv, ax_conv = plt.subplots(figsize=(8, 4))
+        ax_conv.plot(error_hist, color='#007bff', lw=2)
+        ax_conv.set_yscale('log')
+        ax_conv.set_xlabel("Iterations")
+        ax_conv.set_ylabel("Max Error (Log)")
+        ax_conv.grid(True, alpha=0.3)
+        st.pyplot(fig_conv)
+
 with tab_map["🎯 穩定狀態"]:
     st.subheader("長期分佈 (穩定狀態)")
     df_steady = pd.DataFrame({"位置": range(1, n_nodes+1), "機率": steady_v})
     st.table(df_steady.style.format({"機率": "{:.4%}"}))
     st.bar_chart(df_steady.set_index("位置")["機率"])
 
-# ===========================================================================================
-# 5. 新增：計算詳情解剖器
-# ===========================================================================================
 with tab_map["📝 計算詳情"]:
     st.subheader("🔍 數值計算過程解剖")
-    st.markdown("請選擇您想要了解其計算過程的數值：")
-    
     calc_mode = st.selectbox("選擇計算類型", ["轉移矩陣元素 $P_{ij}$", "穩定狀態元素 $\\pi_i$", "矩陣乘法 $(P^2)_{ij}$"])
     
     if calc_mode == "轉移矩陣元素 $P_{ij}$":
         c1, c2 = st.columns(2)
         with c1: row = st.number_input("選擇行 (起點 $i$)", 1, n_nodes, 1)
         with c2: col = st.number_input("選擇列 (終點 $j$)", 1, n_nodes, 2)
-        
-        # 計算過程
         weight_ij = 0.0
         for v, w in adj[row]:
             if v == col: weight_ij = w
-        
         self_w = 1.0 if allow_self else 0.0
         total_w = sum([w for v, w in adj[row]]) + self_w
         res = P[row-1, col-1]
-        
         st.markdown(f'<div class="calc-box">', unsafe_allow_html=True)
         st.latex(f"P_{{{row},{col}}} = \\frac{{\\text{{Weight}}_{{{row} \\to {col}}}}}{{\\sum \\text{{Weights from {row}}} + \\text{{Self-loop}}}} ")
-        st.latex(f"P_{{{row},{col}}} = \\frac{{{weight_ij:.1f}}}{{{total_w - self_w:.1f} + {self_weight if 'self_weight' in locals() else self_w:.1f}}} = {res:.4f}")
+        st.latex(f"P_{{{row},{col}}} = \\frac{{{weight_ij:.1f}}}{{{total_w - self_w:.1f} + {self_w:.1f}}} = {res:.4f}")
         st.markdown('</div>', unsafe_allow_html=True)
 
     elif calc_mode == "穩定狀態元素 $\\pi_i$":
         node = st.number_input("選擇位置 $i$", 1, n_nodes, 1)
-        # 穩定狀態的一步迭代：pi_i = sum(pi_j * P_ji)
-        sum_terms = []
-        formula_terms = []
+        sum_terms, formula_terms = [], []
         for j in range(1, n_nodes + 1):
             val = steady_v[j-1] * P[j-1, node-1]
             sum_terms.append(val)
             formula_terms.append(f"{steady_v[j-1]:.4f} \\times {P[j-1, node-1]:.4f}")
-        
         st.markdown(f'<div class="calc-box">', unsafe_allow_html=True)
         st.latex(f"\\pi_{{{node}}} = \\sum_{{j=1}}^{{{n_nodes}}} (\\pi_{{j}} \\times P_{{j,{node}}})")
         st.latex(f"\\pi_{{{node}}} = {' + '.join(formula_terms)} = {sum(sum_terms):.4f}")
@@ -251,19 +284,12 @@ with tab_map["📝 計算詳情"]:
         c1, c2 = st.columns(2)
         with c1: r = st.number_input("選擇行 $i$", 1, n_nodes, 1)
         with c2: c = st.number_input("選擇列 $j$", 1, n_nodes, 1)
-        
         terms = []
+        formula_terms = []
         for k in range(1, n_nodes + 1):
-            term = P[r-1, k-1] * P[k-1, c-1]
-            terms.append(term)
-            if term != 0:
-                terms_str = f"{P[r-1, k-1]:.2f} \\times {P[k-1, c-1]:.2f}"
-                formula_terms = formula_terms if 'formula_terms' in locals() else []
-                formula_terms.append(terms_str)
-        
-        # 重新計算 formula_terms 避免重複
-        formula_terms = [f"{P[r-1, k-1]:.2f} \\times {P[k-1, c-1]:.2f}" for k in range(1, n_nodes+1)]
-        
+            val = P[r-1, k-1] * P[k-1, c-1]
+            terms.append(val)
+            formula_terms.append(f"{P[r-1, k-1]:.2f} \\times {P[k-1, c-1]:.2f}")
         st.markdown(f'<div class="calc-box">', unsafe_allow_html=True)
         st.latex(f"(P^2)_{{{r},{c}}} = \\sum_{{k=1}}^{{{n_nodes}}} (P_{{{r},{k}}} \\times P_{{{k},{c}}})")
         st.latex(f"(P^2)_{{{r},{c}}} = {' + '.join(formula_terms)} = {sum(terms):.4f}")
