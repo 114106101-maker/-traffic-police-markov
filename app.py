@@ -42,12 +42,6 @@ def apply_custom_style():
             background-color: white;
             border-radius: 10px;
         }
-        .stTabs [data-baseweb="tab-list"] { gap: 10px; }
-        .stTabs [data-baseweb="tab"] {
-            background-color: #eee;
-            border-radius: 10px 10px 0 0;
-            padding: 10px 20px;
-        }
         </style>
     """, unsafe_allow_html=True)
 
@@ -88,16 +82,22 @@ def find_steady_state(P, threshold):
     return v, iteration, error_history
 
 # ==========================================
-# 3. 視覺化與動畫模組 (新增座標控制)
+# 3. 視覺化與動畫模組
 # ==========================================
 def create_interactive_graph(n, edges_with_weights, steady_v=None, fixed_pos=None):
     net = Network(height="500px", width="100%", bgcolor="#ffffff", font_color="black")
     
-    # 如果有固定座標，關閉物理模擬
-    if fixed_pos:
-        net.set_options('{"physics":{"enabled":false}}')
-    else:
-        net.barnes_hut()
+    # 【關鍵】完全禁用物理模擬，防止節點跳動
+    net.set_options("""
+    {
+      "physics": {
+        "enabled": false
+      },
+      "nodes": {
+        "font": { "size": 16 }
+      }
+    }
+    """)
 
     for i in range(1, n + 1):
         color = "#ADD8E6"
@@ -105,17 +105,13 @@ def create_interactive_graph(n, edges_with_weights, steady_v=None, fixed_pos=Non
             intensity = int(steady_v[i-1] * 255 * 2)
             color = f"rgb(255, {255-min(intensity, 255)}, {255-min(intensity, 255)})"
         
-        # 設置座標
-        pos = fixed_pos.get(i, None) if fixed_pos else None
-        x = pos[0] * 100 if pos else None
-        y = pos[1] * 100 if pos else None
-        
-        net.add_node(i, label=f"路口 {i}", color=color, x=x, y=y, 
+        pos = fixed_pos.get(i, (0,0)) if fixed_pos else (0,0)
+        # 將 0~1 的座標映射到 Pyvis 的空間
+        net.add_node(i, label=f"路口 {i}", color=color, x=pos[0]*100, y=pos[1]*100, 
                      title=f"長期機率: {steady_v[i-1]:.4f}" if steady_v is not None else "")
     
     for u, v, w in edges_with_weights:
-        if 1 <= u <= n and 1 <= v <= n:
-            net.add_edge(u, v, value=w, title=f"權重: {w}")
+        net.add_edge(u, v, value=w, title=f"權重: {w}")
     
     net.save_graph("graph.html")
     return "graph.html"
@@ -125,7 +121,6 @@ def draw_simulation_frame(n, edges, current_node, steady_v, fixed_pos=None):
     G.add_nodes_from(range(1, n + 1))
     G.add_edges_from([(u, v) for u, v, w in edges])
     
-    # 使用固定座標或隨機佈局
     pos = fixed_pos if fixed_pos else nx.spring_layout(G, seed=42)
 
     fig, ax = plt.subplots(figsize=(6, 4), dpi=100)
@@ -142,55 +137,49 @@ def draw_simulation_frame(n, edges, current_node, steady_v, fixed_pos=None):
 # ==========================================
 st.set_page_config(page_title="Police Markov Station Pro", layout="wide")
 apply_custom_style()
+
+# --- 初始化 Session State (快取拓撲結構) ---
+if 'topo_data' not in st.session_state:
+    st.session_state.topo_data = {
+        'n_nodes': 5,
+        'edges': [(1, 2, 1.0), (2, 4, 1.0), (4, 3, 1.0), (3, 1, 1.0), (1, 5, 1.0), (2, 5, 1.0), (3, 5, 1.0), (4, 5, 1.0)],
+        'fixed_pos': {1: (0, 1), 2: (1, 1), 3: (0, 0), 4: (1, 0), 5: (0.5, 0.5)}
+    }
+
 st.title("👮 交通警察值勤分析工作站")
 st.markdown("本系統整合了**動態拓撲偵測、加權轉移矩陣、隨機行走動畫與穩定狀態分析**。")
 
 # --- 側邊欄：配置中心 ---
 st.sidebar.header("⚙️ 配置中心")
 with st.sidebar.expander("📍 佈局與連動設定", expanded=True):
-    layout_type = st.selectbox("選擇連接佈局", ["(5節點) 佈局", "3x4 網格", "自定義網格", "手動輸入 (u,v,w)"])
+    layout_type = st.selectbox("選擇連接佈局", ["照片佈局 (5節點)", "3x4 網格", "自定義網格", "手動輸入 (u,v,w)"])
 
-    n_nodes = 0
-    edges_with_weights = []
-    fixed_pos = None
-
-    if layout_type == "(5節點) 佈局":
-        n_nodes = 5
-        # 外圈正方形: 1-2, 2-4, 4-3, 3-1
-        # 內線星形: 1-5, 2-5, 3-5, 4-5
-        edges_with_weights = [
-            (1, 2, 1.0), (2, 4, 1.0), (4, 3, 1.0), (3, 1, 1.0),
-            (1, 5, 1.0), (2, 5, 1.0), (3, 5, 1.0), (4, 5, 1.0)
-        ]
-        # 定義座標讓它看起來像照片 (x, y)
-        fixed_pos = {
-            1: (0, 1),   # 左上
-            2: (1, 1),   # 右上
-            3: (0, 0),   # 左下
-            4: (1, 0),   # 右下
-            5: (0.5, 0.5)# 中心
+    # 當佈局改變時，才更新 session_state
+    if layout_type == "照片佈局 (5節點)":
+        st.session_state.topo_data = {
+            'n_nodes': 5,
+            'edges': [(1, 2, 1.0), (2, 4, 1.0), (4, 3, 1.0), (3, 1, 1.0), (1, 5, 1.0), (2, 5, 1.0), (3, 5, 1.0), (4, 5, 1.0)],
+            'fixed_pos': {1: (0, 1), 2: (1, 1), 3: (0, 0), 4: (1, 0), 5: (0.5, 0.5)}
         }
-
     elif layout_type == "3x4 網格":
-        n_nodes = 12
+        edges = []
         for r in range(3):
             for c in range(4):
                 u = r * 4 + c + 1
-                if c < 3: edges_with_weights.append((u, u + 1, 1.0))
-                if r < 2: edges_with_weights.append((u, u + 4, 1.0))
-
+                if c < 3: edges.append((u, u + 1, 1.0))
+                if r < 2: edges.append((u, u + 4, 1.0))
+        st.session_state.topo_data = {'n_nodes': 12, 'edges': edges, 'fixed_pos': None}
     elif layout_type == "自定義網格":
         rows = st.number_input("行數", min_value=1, value=3)
         cols = st.number_input("列數", min_value=1, value=4)
-        n_nodes = rows * cols
+        edges = []
         for r in range(rows):
             for c in range(cols):
                 u = r * cols + c + 1
-                if c < cols - 1: edges_with_weights.append((u, u + 1, 1.0))
-                if r < rows - 1: edges_with_weights.append((u, u + cols, 1.0))
-
+                if c < cols - 1: edges.append((u, u + 1, 1.0))
+                if r < rows - 1: edges.append((u, u + cols, 1.0))
+        st.session_state.topo_data = {'n_nodes': rows*cols, 'edges': edges, 'fixed_pos': None}
     elif layout_type == "手動輸入 (u,v,w)":
-        st.caption("格式`路口,路口,權重` (例如: 1,2,1.5)")
         raw_input = st.text_area("編輯關係清單", "1,2,1.0\n2,3,1.0\n3,1,1.0")
         temp_edges = []
         current_max = 0
@@ -201,14 +190,17 @@ with st.sidebar.expander("📍 佈局與連動設定", expanded=True):
                     temp_edges.append((int(u), int(v), w))
                     current_max = max(current_max, int(u), int(v))
                 except: pass
-        n_nodes = current_max if current_max >= 2 else 2
-        edges_with_weights = temp_edges
-        st.success(f"🎯 自動偵測路口數: {n_nodes}")
+        st.session_state.topo_data = {'n_nodes': max(current_max, 2), 'edges': temp_edges, 'fixed_pos': None}
 
 with st.sidebar.expander("📈 數學精度設定", expanded=False):
     threshold = st.number_input("收斂閾值", value=0.000001, format="%.7f")
 
-# --- 核心計算流 ---
+# --- 取出快取數據 ---
+n_nodes = st.session_state.topo_data['n_nodes']
+edges_with_weights = st.session_state.topo_data['edges']
+fixed_pos = st.session_state.topo_data['fixed_pos']
+
+# --- 核心計算流 (這部分會隨著 threshold 改變而重新執行) ---
 P = build_transition_matrix(n_nodes, edges_with_weights)
 steady_v, iters, error_hist = find_steady_state(P, threshold)
 
@@ -225,7 +217,7 @@ tab_graph, tab_sim, tab_matrix, tab_conv, tab_steady = st.tabs([
 
 with tab_graph:
     st.subheader("路口連接視覺化")
-    st.info("💡 提示：可拖拽節點。顏色越紅 $\rightarrow$ 警察長期停留機率越高。")
+    st.info("💡 提示：(5節點)佈局已固定座標，不會隨精度調整而跳動。顏色越紅 $\rightarrow$ 機率越高。")
     graph_html = create_interactive_graph(n_nodes, edges_with_weights, steady_v, fixed_pos)
     with open(graph_html, 'r', encoding='utf-8') as f:
         components.html(f.read(), height=550)
@@ -267,7 +259,6 @@ with tab_matrix:
         df_P = pd.DataFrame(P, index=[f"路口 {i+1}" for i in range(n_nodes)],
                             columns=[f"路口 {i+1}" for i in range(n_nodes)])
         st.dataframe(df_P.style.format("{:.4f}"))
-        st.download_button("📥 下載矩陣 CSV", df_P.to_csv().encode('utf-8'), "matrix.csv")
 
 with tab_conv:
     st.subheader("收斂過程分析")
@@ -286,6 +277,5 @@ with tab_steady:
     with c_t1:
         df_steady = pd.DataFrame({"路口": [f"路口 {i+1}" for i in range(n_nodes)], "機率": steady_v})
         st.table(df_steady.style.format({"機率": "{:.4%}"}))
-        st.download_button("📥 下載分佈 CSV", df_steady.to_csv(index=False).encode('utf-8'), "steady_state.csv")
     with c_t2:
         st.bar_chart(df_steady.set_index("路口")["機率"])
