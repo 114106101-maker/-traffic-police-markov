@@ -9,7 +9,7 @@ import time
 
 # ========================================================================================
 # 1. 視覺風格與 CSS
-# =======================================================================================
+# ========================================================================================
 def apply_custom_style():
     st.markdown("""
         <style>
@@ -22,12 +22,13 @@ def apply_custom_style():
         div[data-testid="stExpander"] { border: none !important; box-shadow: 0 2px 8px rgba(0,0,0,0.05); background-color: white; border-radius: 10px; }
         .mode-selector { background-color: #e9ecef; padding: 20px; border-radius: 15px; border: 2px solid #dee2e6; margin-bottom: 20px; }
         .calc-box { background-color: #fff; padding: 15px; border-left: 5px solid #007bff; border-radius: 5px; margin: 10px 0; }
+        .path-box { background-color: #f8f9fa; padding: 15px; border-radius: 10px; border: 1px dashed #ccc; font-family: 'Courier New', Courier, monospace; }
         </style>
     """, unsafe_allow_html=True)
 
-# ========================================================================================
-# 2. 數學核心邏輯
 # =======================================================================================
+# 2. 數學核心邏輯
+# ======================================================================================
 def build_transition_matrix(n, edges_with_weights, allow_self_loop=True):
     P = np.zeros((n, n))
     adj = {i: [] for i in range(1, n + 1)}
@@ -35,9 +36,7 @@ def build_transition_matrix(n, edges_with_weights, allow_self_loop=True):
         if 1 <= u <= n and 1 <= v <= n:
             adj[u].append((v, w))
             adj[v].append((u, w))
-
     self_weight = 1.0 if allow_self_loop else 0.0
-
     for i in range(1, n + 1):
         neighbors = adj[i]
         total_weight = sum([w for v, w in neighbors]) + self_weight
@@ -63,22 +62,20 @@ def find_steady_state(P, threshold):
         iteration += 1
     return v, iteration, error_history
 
-# ========================================================================================
-# 3. 視覺化模組
 # =======================================================================================
+# 3. 視覺化模組
+# ========================================================================================
 def create_interactive_graph(n, edges_with_weights, steady_v=None, fixed_pos=None, label_prefix="位置"):
     net = Network(height="500px", width="100%", bgcolor="#ffffff", font_color="black")
     if fixed_pos:
         net.set_options('{"physics":{"enabled":false}, "nodes":{"font":{"size":16}}}')
     else:
         net.barnes_hut()
-
     for i in range(1, n + 1):
         color = "#ADD8E6"
         if steady_v is not None and len(steady_v) >= i:
             intensity = int(steady_v[i-1] * 255 * 2)
             color = f"rgb(255, {255-min(intensity, 255)}, {255-min(intensity, 255)})"
-        
         if fixed_pos:
             pos = fixed_pos.get(i, (0,0))
             net.add_node(i, label=f"{label_prefix} {i}", color=color, x=pos[0]*100, y=pos[1]*100, 
@@ -86,10 +83,8 @@ def create_interactive_graph(n, edges_with_weights, steady_v=None, fixed_pos=Non
         else:
             net.add_node(i, label=f"{label_prefix} {i}", color=color, 
                          title=f"機率: {steady_v[i-1]:.4f}" if steady_v is not None else "")
-    
     for u, v, w in edges_with_weights:
         net.add_edge(u, v, value=w)
-    
     net.save_graph("graph.html")
     return "graph.html"
 
@@ -106,28 +101,23 @@ def draw_simulation_frame(n, edges, current_node, steady_v, fixed_pos=None):
 
 # ========================================================================================
 # 4. Streamlit 主界面
-# =======================================================================================
+# ========================================================================================
 st.set_page_config(page_title="Markov Analysis Suite Pro", layout="wide")
 apply_custom_style()
 
-# --- 初始狀態定義 ---
-INITIAL_TOPO = {
-    'n_nodes': 5, 
-    'edges': [(1, 2, 1.0), (2, 4, 1.0), (4, 3, 1.0), (3, 1, 1.0), (1, 5, 1.0), (2, 5, 1.0), (3, 5, 1.0), (4, 5, 1.0)],
-    'fixed_pos': {1: (0, 1), 2: (1, 1), 3: (0, 0), 4: (1, 0), 5: (0.5, 0.5)}, 
-    'allow_self_loop': True
-}
-
-# [1] 頂層模式選擇
 st.markdown('<div class="mode-selector">', unsafe_allow_html=True)
 st.subheader("🛠️ 選擇分析模式")
 mode = st.radio("請選擇您要分析的對象：", ["👮 交通警察巡邏 (Police Patrol)", "🐁 8格迷宮老鼠 (Mouse Maze)"], horizontal=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
+INITIAL_TOPO = {
+    'n_nodes': 5, 'edges': [(1, 2, 1.0), (2, 4, 1.0), (4, 3, 1.0), (3, 1, 1.0), (1, 5, 1.0), (2, 5, 1.0), (3, 5, 1.0), (4, 5, 1.0)],
+    'fixed_pos': {1: (0, 1), 2: (1, 1), 3: (0, 0), 4: (1, 0), 5: (0.5, 0.5)}, 'allow_self_loop': True
+}
+
 if 'topo_data' not in st.session_state:
     st.session_state.topo_data = INITIAL_TOPO.copy()
 
-# [2] 側邊欄配置
 st.sidebar.header("⚙️ 配置中心")
 if mode == "👮 交通警察巡邏 (Police Patrol)":
     with st.sidebar.expander("📍 佈局設定", expanded=True):
@@ -173,14 +163,12 @@ elif mode == "🐁 8格迷宮老鼠 (Mouse Maze)":
 with st.sidebar.expander("📈 數學精度設定", expanded=False):
     threshold = st.number_input("收斂閾值", value=0.000001, format="%.7f")
 
-# [新增] 一鍵重置按鈕
 st.sidebar.markdown("---")
 st.sidebar.subheader("🛠️ 系統管理")
 if st.sidebar.button("🔄 一鍵重置所有配置", key="reset_btn"):
     st.session_state.topo_data = INITIAL_TOPO.copy()
     st.rerun()
 
-# --- 核心計算 ---
 n_nodes = st.session_state.topo_data['n_nodes']
 edges_with_weights = st.session_state.topo_data['edges']
 fixed_pos = st.session_state.topo_data['fixed_pos']
@@ -190,13 +178,11 @@ label_prefix = "路口" if mode == "👮 交通警察巡邏 (Police Patrol)" els
 P, adj = build_transition_matrix(n_nodes, edges_with_weights, allow_self_loop=allow_self)
 steady_v, iters, error_hist = find_steady_state(P, threshold)
 
-# [3] 狀態顯示區域 (KPI Dashboard)
 m_col1, m_col2, m_col3 = st.columns(3)
 m_col1.metric("路口/位置規模", f"{n_nodes} 處")
 m_col2.metric("迭代次數", f"{iters} 次")
 m_col3.metric("系統狀態", "穩定" if iters < 10000 else "未收斂")
 
-# [4] 分頁設定
 tabs_list = ["🌐 互動拓撲圖", "⏱️ 隨機行走模擬", "📊 轉移矩陣", "📉 收斂趨勢", "🎯 穩定狀態", "📝 計算詳情", "📐 數學原理"]
 if mode == "🐁 8格迷宮老鼠 (Mouse Maze)":
     tabs_list.insert(3, "🧮 矩陣運算分析")
@@ -221,16 +207,34 @@ with tab_map["⏱️ 隨機行走模擬"]:
     with col_map:
         map_placeholder = st.empty()
         status_placeholder = st.empty()
+        path_placeholder = st.empty() # [新增] 路徑紀錄顯示區
+        
         if run_btn:
             current = start_node
+            visited_path = [current] # [新增] 初始化路徑紀錄
+            
             for i in range(sim_steps):
                 fig = draw_simulation_frame(n_nodes, edges_with_weights, current, steady_v, fixed_pos)
                 map_placeholder.pyplot(fig)
                 status_placeholder.markdown(f"**狀態**：第 {i+1} 步 $\rightarrow$ 位於 **{label_prefix} {current}**")
+                
+                # [新增] 更新實時路徑紀錄
+                path_str = " $\rightarrow$ ".join(map(str, visited_path))
+                path_placeholder.markdown(f"""
+                    <div class="path-box">
+                        <strong>🚶 實時路徑紀錄：</strong><br>
+                        {path_str}
+                    </div>
+                """, unsafe_allow_html=True)
+                
                 probs = P[current-1, :]
                 current = np.random.choice(range(1, n_nodes + 1), p=probs/np.sum(probs))
+                visited_path.append(current)
                 time.sleep(speed)
                 plt.close(fig)
+            
+            # 模擬結束後顯示最終路徑
+            st.success(f"✅ 模擬結束。完整路徑：{' $\rightarrow$ '.join(map(str, visited_path))}")
 
 if "🧮 矩陣運算分析" in tab_map:
     with tab_map["🧮 矩陣運算分析"]:
