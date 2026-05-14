@@ -8,7 +8,7 @@ import streamlit.components.v1 as components
 import time
 
 # ==========================================================================================
-# 1. 視覺風格與 CSS (完整保留)
+# 1. 視覺風格與 CSS
 # ===========================================================================================
 def apply_custom_style():
     st.markdown("""
@@ -49,7 +49,7 @@ def build_transition_matrix(n, edges_with_weights, allow_self_loop=True):
     return P, adj
 
 def find_steady_state(P, threshold):
-    """計算直到收斂的穩定狀態 (原功能保留)"""
+    """計算直到收斂的穩定狀態 """
     n = P.shape[0]
     if n == 0: return np.array([]), 0, []
     v = np.zeros(n)
@@ -67,7 +67,7 @@ def find_steady_state(P, threshold):
     return v, iteration, error_history
 
 def get_convergence_history_fixed(P, max_iters):
-    """【新增功能】精確執行 N 次迭代並回傳誤差紀錄，不因閾值提前停止"""
+    """精確執行 N 次迭代並回傳誤差紀錄，不因閾值提前停止"""
     n = P.shape[0]
     if n == 0: return []
     v = np.zeros(n)
@@ -81,7 +81,7 @@ def get_convergence_history_fixed(P, max_iters):
     return error_history
 
 # ==========================================================================================
-# 3. 視覺化模組 (完整保留)
+# 3. 視覺化模組 
 # ==========================================================================================
 def create_interactive_graph(n, edges_with_weights, steady_v=None, fixed_pos=None, label_prefix="位置"):
     net = Network(height="500px", width="100%", bgcolor="#ffffff", font_color="black")
