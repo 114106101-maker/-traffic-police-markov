@@ -7,10 +7,18 @@ from pyvis.network import Network
 import streamlit.components.v1 as components
 import time
 
-# ==========================================================================================
-# 1. 視覺風格與 CSS
-# ===========================================================================================
+# =====================================================================================================
+# 1. 視覺風格與 CSS 定義
+# =====================================================================================================
 def apply_custom_style():
+    """
+    注入自定義 CSS 樣式以優化 Streamlit 介面外觀。
+    
+    Args:
+        None
+    Returns:
+        None
+    """
     st.markdown("""
         <style>
         .main { background-color: #fbfbfb; }
@@ -27,17 +35,29 @@ def apply_custom_style():
         </style>
     """, unsafe_allow_html=True)
 
-# ==========================================================================================
+# =====================================================================================================
 # 2. 數學核心邏輯
-# ==========================================================================================
+# =====================================================================================================
 def build_transition_matrix(n, edges_with_weights, allow_self_loop=True):
+    """
+    根據圖形拓撲結構建立馬可夫轉移矩陣 P。
+    
+    Args:
+        n (int): 節點總數。
+        edges_with_weights (list): 邊的清單，格式為 [(u, v, weight), ...]。
+        allow_self_loop (bool): 是否允許自環 (留在原地的機率)，預設為 True。
+        
+    Returns:
+        P (numpy.ndarray): n x n 的轉移矩陣，每一行之總和為 1。
+        adj (dict): 鄰接表，儲存每個節點的鄰居及其權重 {node: [(neighbor, weight), ...]}。
+    """
     P = np.zeros((n, n))
     adj = {i: [] for i in range(1, n + 1)}
     for u, v, w in edges_with_weights:
         if 1 <= u <= n and 1 <= v <= n:
             adj[u].append((v, w))
             adj[v].append((u, w))
-
+    
     self_weight = 1.0 if allow_self_loop else 0.0
     for i in range(1, n + 1):
         neighbors = adj[i]
@@ -49,11 +69,22 @@ def build_transition_matrix(n, edges_with_weights, allow_self_loop=True):
     return P, adj
 
 def find_steady_state(P, threshold):
-    """計算直到收斂的穩定狀態 """
+    """
+    使用冪法 (Power Method) 計算馬可夫鏈的穩定狀態分佈。
+    
+    Args:
+        P (numpy.ndarray): 轉移矩陣。
+        threshold (float): 收斂閾值，當兩次迭代的最大絕對誤差小於此值時停止。
+        
+    Returns:
+        v (numpy.ndarray): 穩定狀態機率分佈向量。
+        iteration (int): 達到收斂所需的總迭代次數。
+        error_history (list): 每次迭代的誤差記錄 (用於繪圖)。
+    """
     n = P.shape[0]
     if n == 0: return np.array([]), 0, []
     v = np.zeros(n)
-    v[0] = 1.0 # 使用點分佈增加收斂過程的可視化長度
+    v[0] = 1.0 # 初始分佈：全部在第一個點
     error_history = []
     iteration = 0
     while True:
@@ -67,7 +98,16 @@ def find_steady_state(P, threshold):
     return v, iteration, error_history
 
 def get_convergence_history_fixed(P, max_iters):
-    """精確執行 N 次迭代並回傳誤差紀錄，不因閾值提前停止"""
+    """
+    執行固定次數的迭代並記錄誤差，不因閾值提前停止，用於分析收斂速度。
+    
+    Args:
+        P (numpy.ndarray): 轉移矩陣。
+        max_iters (int): 強制執行的迭代次數。
+        
+    Returns:
+        error_history (list): 長度為 max_iters 的誤差記錄清單。
+    """
     n = P.shape[0]
     if n == 0: return []
     v = np.zeros(n)
@@ -80,16 +120,29 @@ def get_convergence_history_fixed(P, max_iters):
         v = v_next
     return error_history
 
-# ==========================================================================================
-# 3. 視覺化模組 
-# ==========================================================================================
+# =====================================================================================================
+# 3. 視覺化模組
+# =====================================================================================================
 def create_interactive_graph(n, edges_with_weights, steady_v=None, fixed_pos=None, label_prefix="位置"):
+    """
+    利用 PyVis 建立可交互的 HTML 網路圖。
+    
+    Args:
+        n (int): 節點總數。
+        edges_with_weights (list): 邊的清單 [(u, v, weight), ...]。
+        steady_v (numpy.ndarray, optional): 穩定狀態向量，用於根據機率決定節點顏色。
+        fixed_pos (dict, optional): 固定座標字典 {node: (x, y)}。
+        label_prefix (str): 節點標籤的前綴名稱。
+        
+    Returns:
+        str: 生成的 HTML 檔案路徑 ("graph.html")。
+    """
     net = Network(height="500px", width="100%", bgcolor="#ffffff", font_color="black")
     if fixed_pos:
         net.set_options('{"physics":{"enabled":false}, "nodes":{"font":{"size":16}}}')
     else:
         net.barnes_hut()
-        
+
     for i in range(1, n + 1):
         color = "#ADD8E6"
         if steady_v is not None and len(steady_v) >= i:
@@ -108,6 +161,19 @@ def create_interactive_graph(n, edges_with_weights, steady_v=None, fixed_pos=Non
     return "graph.html"
 
 def draw_simulation_frame(n, edges, current_node, steady_v, fixed_pos=None):
+    """
+    繪製隨機行走模擬的單個畫面幀。
+    
+    Args:
+        n (int): 節點總數。
+        edges (list): 邊的清單 [(u, v, weight), ...]。
+        current_node (int): 當前行走所在的節點。
+        steady_v (numpy.ndarray): 穩定狀態向量 (此處主要用於傳遞)。
+        fixed_pos (dict, optional): 固定座標字典。
+        
+    Returns:
+        matplotlib.figure.Figure: 繪製完成的 Matplotlib 圖表物件。
+    """
     G = nx.Graph()
     G.add_nodes_from(range(1, n + 1))
     G.add_edges_from([(u, v) for u, v, w in edges])
@@ -118,9 +184,9 @@ def draw_simulation_frame(n, edges, current_node, steady_v, fixed_pos=None):
     plt.axis('off')
     return fig
 
-# ==========================================================================================
+# =====================================================================================================
 # 4. Streamlit 主界面
-# ==========================================================================================
+# =====================================================================================================
 st.set_page_config(page_title="Markov Analysis Suite Pro", layout="wide")
 apply_custom_style()
 
@@ -133,7 +199,6 @@ INITIAL_TOPO = {
     'n_nodes': 5, 'edges': [(1, 2, 1.0), (2, 4, 1.0), (4, 3, 1.0), (3, 1, 1.0), (1, 5, 1.0), (2, 5, 1.0), (3, 5, 1.0), (4, 5, 1.0)],
     'fixed_pos': {1: (0, 100), 2: (100, 100), 3: (0, 0), 4: (100, 0), 5: (50, 50)}, 'allow_self_loop': True
 }
-
 if 'topo_data' not in st.session_state:
     st.session_state.topo_data = INITIAL_TOPO.copy()
 
@@ -180,7 +245,6 @@ elif mode == "🐁 8格迷宮老鼠 (Mouse Maze)":
 
 with st.sidebar.expander("📈 數學精度設定", expanded=False):
     threshold = st.number_input("收斂閾值", value=0.000001, format="%.7f")
-
 st.sidebar.markdown("---")
 st.sidebar.subheader("🛠️ 系統管理")
 if st.sidebar.button("🔄 一鍵重置所有配置", key="reset_btn"):
@@ -192,7 +256,6 @@ edges_with_weights = st.session_state.topo_data['edges']
 fixed_pos = st.session_state.topo_data['fixed_pos']
 allow_self = st.session_state.topo_data['allow_self_loop']
 label_prefix = "路口" if mode == "👮 交通警察巡邏 (Police Patrol)" else "位置"
-
 P, adj = build_transition_matrix(n_nodes, edges_with_weights, allow_self_loop=allow_self)
 steady_v, iters, error_hist_auto = find_steady_state(P, threshold)
 
@@ -201,10 +264,9 @@ m_col1.metric("路口/位置規模", f"{n_nodes} 處")
 m_col2.metric("自動收斂次數", f"{iters} 次")
 m_col3.metric("系統狀態", "穩定" if iters < 10000 else "未收斂")
 
-tabs_list = ["🌐 互動拓撲圖", "⏱️ 隨機行走模擬", "📊 轉移矩陣", "📉 收斂趨勢", "🎯 穩定狀態", "📝 計算詳情", "📐 數學原理"]
+tabs_list = ["🌐 互動拓撲圖", "⏱️ 隨機行走模擬", "📈 步數分佈演進", "📊 轉移矩陣", "📉 收斂趨勢", "🎯 穩定狀態", "📝 計算詳情", "📐 數學原理"]
 if mode == "🐁 8格迷宮老鼠 (Mouse Maze)":
-    tabs_list.insert(3, "🧮 矩陣運算分析")
-
+    tabs_list.insert(4, "🧮 矩陣運算分析")
 tab_objs = st.tabs(tabs_list)
 tab_map = {name: tab for name, tab in zip(tabs_list, tab_objs)}
 
@@ -242,6 +304,52 @@ with tab_map["⏱️ 隨機行走模擬"]:
                 plt.close(fig)
             st.success(f"✅ 模擬結束。完整路徑：{' $\rightarrow$ '.join(map(str, visited_path))}")
 
+with tab_map["📈 步數分佈演進"]:
+    st.subheader("🚶 從位置 1 出發的機率演進")
+    st.write("設定步數 $m$，計算在第 $m$ 步時，出現在各個位置的機率分布 $v^{(m)} = v^{(0)} P^m$")
+    col_in, col_out = st.columns([1, 2])
+    with col_in:
+        m_steps = st.number_input("設定步數 (m)", 0, 500, 1)
+        st.info("當 $m=0$ 時，機率 100% 在位置 1。")
+    with col_out:
+        v0 = np.zeros(n_nodes)
+        v0[0] = 1.0
+        Pm = np.linalg.matrix_power(P, m_steps)
+        vm = np.dot(v0, Pm)
+        df_vm = pd.DataFrame({"位置": [f"{label_prefix} {i+1}" for i in range(n_nodes)], "機率": vm})
+        res_col1, res_col2 = st.columns([1, 1])
+        with res_col1:
+            st.markdown("**機率分佈表**")
+            st.table(df_vm.style.format({"機率": "{:.4%}"}))
+        with res_col2:
+            st.markdown("**機率可視化**")
+            fig_vm, ax_vm = plt.subplots(figsize=(5, 4))
+            ax_vm.bar(df_vm["位置"], df_vm["機率"], color="#007bff")
+            ax_vm.set_ylabel("Probability")
+            ax_vm.set_ylim(0, 1.0)
+            ax_vm.set_title(f"Distribution after {m_steps} steps")
+            st.pyplot(fig_vm)
+            plt.close(fig_vm)
+    st.markdown("---")
+    st.subheader("⏳ 隨步數增加的機率變化趨勢")
+    max_trace = st.slider("分析總步數", 1, 100, 20)
+    trace_data = []
+    curr_v = v0.copy()
+    for s in range(max_trace + 1):
+        trace_data.append(curr_v.copy())
+        curr_v = np.dot(curr_v, P)
+    df_trace = pd.DataFrame(trace_data, columns=[f"{label_prefix} {i+1}" for i in range(n_nodes)])
+    fig_trace, ax_trace = plt.subplots(figsize=(10, 4))
+    for col in df_trace.columns:
+        ax_trace.plot(df_trace.index, df_trace[col], label=col, marker='.', markersize=4)
+    ax_trace.set_xlabel("Steps (m)")
+    ax_trace.set_ylabel("Probability")
+    ax_trace.set_title("Probability Evolution over Time (Starting from Pos 1)")
+    ax_trace.legend(loc='upper right', bbox_to_anchor=(1.15, 1))
+    ax_trace.grid(True, alpha=0.3)
+    st.pyplot(fig_trace)
+    plt.close(fig_trace)
+
 if "🧮 矩陣運算分析" in tab_map:
     with tab_map["🧮 矩陣運算分析"]:
         st.subheader("🎯 特定步數機率計算")
@@ -269,17 +377,12 @@ with tab_map["📊 轉移矩陣"]:
 
 with tab_map["📉 收斂趨勢"]:
     st.subheader("收斂過程分析")
-    
-    # --- 【新增功能：可調整的迭代次數】 ---
     col_ctrl, col_info = st.columns([1, 1])
     with col_ctrl:
         user_iters = st.slider("調整迭代次數 (Iterations)", 1, 500, 100)
     with col_info:
         st.info(f"目前設定執行 {user_iters} 次迭代。您可以觀察 Max Error 如何隨著次數增加而下降。")
-    
-    # 使用新函數計算誤差，確保不會因為 threshold 而提前停止
     error_hist_user = get_convergence_history_fixed(P, user_iters)
-    
     if len(error_hist_user) > 0:
         fig_conv, ax_conv = plt.subplots(figsize=(8, 4))
         ax_conv.plot(error_hist_user, color='#007bff', lw=2, marker='o', markersize=2, alpha=0.8)
@@ -345,6 +448,6 @@ with tab_map["📝 計算詳情"]:
 with tab_map["📐 數學原理"]:
     st.subheader("📐 數學模型與解析")
     if mode == "🐁 8格迷宮老鼠 (Mouse Maze)":
-        st.markdown("#### 迷宮問題分析\n- **無自環限制**：$P_{ii} = 0$。\n- **多步轉移**：使用 $P^m$ 求解分佈。")
+        st.markdown("### 迷宮問題分析\n- **無自環限制**：$P_{ii} = 0$。\n- **多步轉移**：使用 $P^m$ 求解分佈。")
     else:
         st.markdown("#### 巡邏問題分析\n- **自環權重**：$w_{ii} = 1.0$。")
