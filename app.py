@@ -997,7 +997,7 @@ with tab_map["🌐 互動拓撲圖"]:
         components.html(f.read(), height=550)
 
 # ======================================================================================================
-# 分頁 2：隨機行走模擬（強化版）
+# 分頁 2：隨機行走模擬
 # ======================================================================================================
 with tab_map["⏱️ 隨機行走模擬"]:
     st.subheader("🚀 隨機行走模擬")
@@ -1132,8 +1132,8 @@ with tab_map["📉 收斂趨勢"]:
         fig_conv, ax_conv = plt.subplots(figsize=(8, 4))
         ax_conv.plot(err_hist, color='#007AFF', lw=2, marker='o', markersize=2)
         ax_conv.set_yscale('log')
-        ax_conv.set_xlabel("迭代次數")
-        ax_conv.set_ylabel("最大誤差 (log scale)")
+        ax_conv.set_xlabel("Number of iterations")
+        ax_conv.set_ylabel("Maximum error (log scale)")
         ax_conv.grid(True, alpha=0.3)
         ax_conv.set_title("Convergence Error per Iteration")
         st.pyplot(fig_conv); plt.close(fig_conv)
