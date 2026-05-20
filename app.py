@@ -201,7 +201,7 @@ def render_smooth_simulation(n_nodes, edges, P_matrix, start_node, speed):
             nodes.update({{id: nextNode, color: {{background: '#FFD60A', border: '#FFB800'}}, shadow: true}});
             currentNode = nextNode;
             stepCount++;
-            document.getElementById('status-bar').innerText = `第 ${{stepCount}} 步 $\\rightarrow$ 位於位置 ${{currentNode}}`;
+            document.getElementById('status-bar').innerText = `第 ${{stepCount}} 步 → 位於位置 ${{currentNode}}`;
         }}
         setInterval(move, speed);
     </script>
@@ -324,7 +324,8 @@ with tab_map["⏱️ 隨機行走模擬"]:
 # --- 📈 步數分佈演進 (強化版) ---
 with tab_map["📈 步數分佈演進"]:
     st.subheader("🚶 隨機行走機率演進分析")
-    st.markdown(f"""<div class="glass-card"><div class="calc-box"><strong style="font-size:1.1rem;">📏 數學依據：n 步轉移機率計算</strong><div style="margin: 10px 0;">$$(P^n)_{{ij}} = \\sum_{{k=1}}^{{m}} P_{{ik}} \\dots P_{{kj}}$$</div><div class="explain-box"><strong>💡 邏輯解析：</strong><br>透過矩陣冪運算 $P^n$，一次計算出所有位置在 $n$ 步後的分布。</div></div></div>""", unsafe_allow_html=True)
+    # ✅ 已修正公式：對應圖片中的遞迴展開式
+    st.markdown(f"""<div class="glass-card"><div class="calc-box"><strong style="font-size:1.1rem;">📏 數學依據：n 步轉移機率計算</strong><div style="margin: 10px 0;">$$(P^n)_{{ij}} = \\sum_{{k=1}}^{{m}} P_{{ik}}^{{(n-1)}} P_{{kj}}$$</div><div class="explain-box"><strong>💡 邏輯解析：</strong><br>這是矩陣冪的遞迴展開式：$n$ 步轉移機率等於「先走 $n-1$ 步到中間節點 $k$，再從 $k$ 一步到 $j$」所有路徑的機率總和。</div></div></div>""", unsafe_allow_html=True)
     col_s1, col_s2 = st.columns([1, 1])
     with col_s1: start_pos_evo = st.number_input("選擇出發位置 (Starting Node)", 1, n_nodes, 1)
     with col_s2: hours = st.number_input("設定時間 (小時/步數)", 0, 500, 1)
@@ -399,7 +400,7 @@ with tab_map["📝 計算詳情"]:
         total_w = sum([w for v, w in adj[row]]) + self_w
         res = P[row-1, col-1]
         st.markdown(f'<div class="calc-box">', unsafe_allow_html=True)
-        st.latex(f"P_{{{row},{col}}} = \\frac{{{{weight_{{row} \\to {col}}}}}}{{\\sum {{Weights from {row}}} + {{Self-loop}}}}}")
+        st.latex(f"P_{{{row},{col}}} = \\frac{{w_{{{row} \\to {col}}}}}{{\\sum_{{\\text{{neighbors}}}} w + w_{{\\text{{self}}}}}}")
         st.latex(f"P_{{{row},{col}}} = \\frac{{{weight_ij:.1f}}}{{{total_w - self_w:.1f} + {self_w:.1f}}} = {res:.4f}")
         st.markdown(f'<div class="explain-box"><strong>💡 邏輯解析：</strong><br>這代表從{label_prefix} {row} 出發，選擇移動到{label_prefix} {col} 的權重佔比。</div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
