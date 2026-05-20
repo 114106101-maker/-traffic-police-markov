@@ -1256,7 +1256,8 @@ with tab_map["📝 計算詳情"]:
                          for k in range(1, n_nodes + 1)]
         result = sum(P[r-1, k-1] * P[k-1, c-1] for k in range(1, n_nodes + 1))
         st.markdown('<div class="calc-box">', unsafe_allow_html=True)
-       st.latex(rf"(P^2)_{{{r},{c}}} = \sum_{{k=1}}^{{{n_nodes}}} (P_{{{r},{{k}}}} \times P_{{{{{k}},{c}}})")
+       latex_str = r"(P^2)_{{{0},{1}}} = \sum_{{k=1}}^{{{2}}} (P_{{{0},{{k}}}} \times P_{{{{{k}},{1}}})".format(r, c, n_nodes)
+st.latex(latex_str)
         st.latex(rf"(P^2)_{{{r},{c}}} = {' + '.join(formula_terms)} = {result:.4f}")
         st.markdown(f'<div class="explain-box"><strong>💡 邏輯：</strong>'
                     f'經過恰好 2 步，從{label_prefix} {r} 到達{label_prefix} {c} 的機率。</div>',
