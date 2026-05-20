@@ -8,9 +8,9 @@ import streamlit.components.v1 as components
 import time
 import json
 
-# =====================================================================================================
+# ======================================================================================================
 # 1. 視覺風格與 iOS-Style CSS 定義
-# =====================================================================================================
+# ======================================================================================================
 def apply_custom_style() -> None:
     st.markdown("""
         <style>
@@ -74,9 +74,9 @@ def apply_custom_style() -> None:
         </style>
     """, unsafe_allow_html=True)
 
-# ====================================================================================================
+# ======================================================================================================
 # 2. 數學核心邏輯
-# ====================================================================================================
+# ======================================================================================================
 def build_transition_matrix(n, edges_with_weights, allow_self_loop=True):
     P = np.zeros((n, n))
     adj = {i: [] for i in range(1, n + 1)}
@@ -121,9 +121,9 @@ def get_convergence_history_fixed(P, max_iters):
         v = v_next
     return error_history
 
-# ====================================================================================================
+# ======================================================================================================
 # 3. 視覺化與動畫組件
-# ====================================================================================================
+# ======================================================================================================
 def create_interactive_graph(n, edges_with_weights, steady_v=None, fixed_pos=None, label_prefix="位置"):
     net = Network(height="500px", width="100%", bgcolor="#ffffff", font_color="black")
     if fixed_pos:
@@ -208,9 +208,9 @@ def render_smooth_simulation(n_nodes, edges, P_matrix, start_node, speed):
     """
     return components.html(html_content, height=550)
 
-# ====================================================================================================
+# ======================================================================================================
 # 4. Streamlit 主界面
-# ====================================================================================================
+# ======================================================================================================
 st.set_page_config(page_title="Markov Analysis Suite Pro", layout="wide")
 apply_custom_style()
 
@@ -228,6 +228,7 @@ INITIAL_TOPO = {
 if 'topo_data' not in st.session_state:
     st.session_state.topo_data = INITIAL_TOPO.copy()
 
+# 側邊欄
 st.sidebar.header("⚙️ 配置中心")
 if mode == "👮 交通警察巡邏 (Police Patrol)":
     with st.sidebar.expander("📍 佈局設定", expanded=True):
@@ -274,6 +275,7 @@ if st.sidebar.button("🔄 一鍵重置所有配置"):
     st.session_state.topo_data = INITIAL_TOPO.copy()
     st.rerun()
 
+# 計算
 n_nodes = st.session_state.topo_data['n_nodes']
 edges_with_weights = st.session_state.topo_data['edges']
 fixed_pos = st.session_state.topo_data['fixed_pos']
@@ -282,11 +284,13 @@ label_prefix = "路口" if mode == "👮 交通警察巡邏 (Police Patrol)" els
 P, adj = build_transition_matrix(n_nodes, edges_with_weights, allow_self_loop=allow_self)
 steady_v, iters, _ = find_steady_state(P, threshold)
 
+# 指標
 m_col1, m_col2, m_col3 = st.columns(3)
 m_col1.metric("規模", f"{n_nodes} 處")
 m_col2.metric("收斂次數", f"{iters} 次")
 m_col3.metric("狀態", "穩定" if iters < 10000 else "未收斂")
 
+# 分頁
 tabs_list = ["🌐 互動拓撲圖", "⏱️ 隨機行走模擬", "📈 步數分佈演進", "📊 轉移矩陣", "📉 收斂趨勢", "🎯 穩定狀態", "📝 計算詳情", "📐 數學原理"]
 if mode == "🐁 8格迷宮老鼠 (Mouse Maze)":
     tabs_list.insert(4, "🧮 矩陣運算分析")
@@ -317,24 +321,10 @@ with tab_map["⏱️ 隨機行走模擬"]:
             st.warning("請點擊『啟動流暢模擬』開始體驗。")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# --- 📈 步數分佈演進 (對應公式 + 自由起點) ---
+# --- 📈 步數分佈演進 (強化版) ---
 with tab_map["📈 步數分佈演進"]:
     st.subheader("🚶 隨機行走機率演進分析")
-    st.markdown(f"""
-    <div class="glass-card">
-        <div class="calc-box">
-            <strong style="font-size:1.1rem;">📏 數學依據：n 步轉移機率計算 (Chapman-Kolmogorov)</strong><br>
-            <div style="margin: 15px 0; text-align:center;">
-                <span style="font-size:1.3rem; color:#007AFF;">$$(P^n)_{{ij}} = \\sum_{{k=1}}^{{m}} P_{{ik}}^{{(n-1)}} P_{{kj}}$$</span>
-            </div>
-            <div class="explain-box">
-                <strong>💡 邏輯解析：</strong><br>
-                此公式定義了從位置 $i$ 到 $j$ 的 $n$ 步轉移機率。它將過程分解為：先經過 $n-1$ 步到達中間點 $k$，再由 $k$ 走最後一步到達 $j$。<br>
-                在程式實作中，我們使用 <b>矩陣冪運算 $P^n$</b>。根據矩陣乘法定義，其元素恰好就是對上述公式中 $\sum$ 項的求和運算。
-            </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(f"""<div class="glass-card"><div class="calc-box"><strong style="font-size:1.1rem;">📏 數學依據：n 步轉移機率計算</strong><div style="margin: 10px 0;">$$(P^n)_{{ij}} = \\sum_{{k=1}}^{{m}} P_{{ik}} \\dots P_{{kj}}$$</div><div class="explain-box"><strong>💡 邏輯解析：</strong><br>透過矩陣冪運算 $P^n$，一次計算出所有位置在 $n$ 步後的分布。</div></div></div>""", unsafe_allow_html=True)
     col_s1, col_s2 = st.columns([1, 1])
     with col_s1: start_pos_evo = st.number_input("選擇出發位置 (Starting Node)", 1, n_nodes, 1)
     with col_s2: hours = st.number_input("設定時間 (小時/步數)", 0, 500, 1)
@@ -438,6 +428,7 @@ with tab_map["📝 計算詳情"]:
         st.markdown(f'<div class="explain-box"><strong>💡 邏輯解析：</strong><br>這是在計算「經過恰好 2 步」從 {label_prefix} {r} 到達 {label_prefix} {c} 的機率。</div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
+# --- 📐 數學原理 ---
 with tab_map["📐 數學原理"]:
     st.subheader("📐 數學模型與解析")
     if mode == "🐁 8格迷宮老鼠 (Mouse Maze)":
@@ -445,6 +436,7 @@ with tab_map["📐 數學原理"]:
     else:
         st.markdown("### 巡邏問題分析\n- **自環權重**：$w_{ii} = 1.0$。")
 
+# --- 🧮 矩陣運算分析 (迷宮專用) ---
 if "🧮 矩陣運算分析" in tab_map:
     with tab_map["🧮 矩陣運算分析"]:
         st.subheader("🎯 特定步數機率計算")
