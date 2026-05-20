@@ -8,113 +8,126 @@ import streamlit.components.v1 as components
 import time
 
 # =====================================================================================================
-# 1. 視覺風格與 CSS 定義
+# 1. 視覺風格與 iOS-Style CSS 定義
 # =====================================================================================================
 def apply_custom_style() -> None:
     """
-    注入自定義 CSS 樣式以優化 Streamlit 介面外觀。
-    
-    Args:
-        None
-    Returns:
-        None: 此函式僅執行 UI 注入，不回傳任何值。
+    注入 iOS 風格的自定義 CSS 樣式：強調圓角、玻璃擬態與柔和陰影。
     """
     st.markdown("""
         <style>
-        .main { background-color: #fbfbfb; }
-        .stMetric {
-            background-color: #ffffff !important;
-            padding: 15px !important;
-            border-radius: 12px !important;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05) !important;
-            border: 1px solid #eee !important;
+        /* 全域背景：使用 iOS 淺色模式的淡色漸層 */
+        .stApp {
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e7eb 100%);
         }
+        
+        /* 玻璃擬態卡片 (Glassmorphism) */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7) !important;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 24px !important;
+            border: 1px solid rgba(255, 255, 255, 0.3) !important;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07) !important;
+            padding: 25px !important;
+            margin-bottom: 20px !important;
+            color: #1d1d1f;
+        }
+
+        /* 強化 Metric 樣式 */
+        .stMetric {
+            background: rgba(255, 255, 255, 0.8) !important;
+            padding: 20px !important;
+            border-radius: 20px !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03) !important;
+            border: none !important;
+        }
+
+        /* iOS 風格按鈕 */
         .stButton>button {
             width: 100%;
-            border-radius: 12px !important;
-            background: linear-gradient(45deg, #007bff, #0056b3) !important;
+            border-radius: 16px !important;
+            background: linear-gradient(180deg, #007AFF, #005BBF) !important;
             color: white !important;
             font-weight: 600 !important;
             border: none !important;
-            padding: 12px 20px !important;
-            box-shadow: 0 4px 10px rgba(0,123,255,0.3) !important;
+            padding: 14px 20px !important;
+            transition: all 0.3s ease !important;
+            box-shadow: 0 4px 15px rgba(0, 122, 255, 0.3) !important;
         }
         .stButton>button:hover {
-            background: linear-gradient(45deg, #0056b3, #004085) !important;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 122, 255, 0.4) !important;
+            background: linear-gradient(180deg, #0084ff, #0066ff) !important;
         }
+
+        /* 刪除標記處的紅色按鈕 */
         div.stButton > div.st-emotion-cache-micr9v > button {
-            background: linear-gradient(45deg, #ff4b2b, #ff416c) !important;
-            box-shadow: 0 4px 10px rgba(255,75,43,0.3) !important;
+            background: linear-gradient(180deg, #FF3B30, #D70015) !important;
+            box-shadow: 0 4px 15px rgba(255, 59, 48, 0.3) !important;
         }
-        div[data-testid="stExpander"] {
-            border: none !important;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-            background-color: white;
-            border-radius: 10px;
-        }
+
+        /* 模式選擇器容器 */
         .mode-selector {
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-            padding: 25px;
-            border-radius: 20px;
-            border: 1px solid #dee2e6;
+            background: rgba(255, 255, 255, 0.5);
+            backdrop-filter: blur(15px);
+            padding: 30px;
+            border-radius: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.4);
             margin-bottom: 30px;
             text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
         }
+
+        /* 數學解析區塊 */
         .calc-box {
-            background-color: #ffffff;
+            background: rgba(255, 255, 255, 0.9);
             padding: 20px;
-            border-left: 6px solid #007bff;
-            border-radius: 8px;
+            border-radius: 20px;
+            border-left: 8px solid #007AFF;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
             margin: 15px 0;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
         }
+
         .explain-box {
-            background-color: #fff9db;
+            background-color: #fffbe6;
             padding: 15px;
-            border-radius: 8px;
-            border: 1px solid #ffe066;
+            border-radius: 16px;
+            border: 1px solid #ffe58f;
             margin-top: 10px;
             color: #856404;
-            font-size: 0.95rem;
+            font-size: 0.9rem;
         }
+
         .path-box {
-            background-color: #f1f3f5;
+            background: rgba(242, 242, 247, 0.8);
             padding: 15px;
-            border-radius: 12px;
-            border: 2px dashed #adb5bd;
-            font-family: 'Consolas', monospace;
-            color: #495057;
+            border-radius: 16px;
+            border: 1px solid #d1d1d6;
+            font-family: 'SF Mono', 'Consolas', monospace;
+            color: #3a3a3c;
         }
+
+        /* 標籤頁樣式優化 */
         .stTabs [data-baseweb="tab"] {
-            background-color: #fff;
-            border: 1px solid #dee2e6;
-            border-radius: 8px 8px 0 0;
-            padding: 10px 20px;
+            background-color: transparent !important;
+            border: none !important;
+            border-radius: 12px 12px 0 0 !important;
+            padding: 10px 20px !important;
+            transition: all 0.2s ease;
+        }
+        .stTabs [aria-selected="true"] {
+            background-color: rgba(255, 255, 255, 0.8) !important;
+            border-bottom: 3px solid #007AFF !important;
+            font-weight: bold !important;
         }
         </style>
     """, unsafe_allow_html=True)
 
 # =====================================================================================================
-# 2. 數學核心邏輯
+# 2. 數學核心邏輯 (保持不變)
 # ======================================================================================================
-def build_transition_matrix(
-    n: int, 
-    edges_with_weights: list[tuple[int, int, float]], 
-    allow_self_loop: bool = True
-) -> tuple[np.ndarray, dict[int, list[tuple[int, float]]]]:
-    """
-    根據節點數、帶權邊列表與是否允許自環，建立馬可夫轉移矩陣 P。
-    
-    Args:
-        n (int): 節點總數 (編號 1~n)。
-        edges_with_weights (list[tuple]): 邊列表 [(u, v, weight), ...]。
-        allow_self_loop (bool): 是否允許自環 (停留原地的機率)，預設為 True。
-        
-    Returns:
-        tuple[np.ndarray, dict]: 
-            - P: 形狀為 (n, n) 的轉移矩陣，每行之和為 1.0。
-            - adj: 鄰接表 {節點: [(鄰居, 權重), ...]}，用於後續計算詳情展示。
-    """
+def build_transition_matrix(n, edges_with_weights, allow_self_loop=True):
     P = np.zeros((n, n))
     adj = {i: [] for i in range(1, n + 1)}
     for u, v, w in edges_with_weights:
@@ -125,66 +138,31 @@ def build_transition_matrix(
     for i in range(1, n + 1):
         neighbors = adj[i]
         total_weight = sum([w for v, w in neighbors]) + self_weight
-        if total_weight == 0:
-            continue
+        if total_weight == 0: continue
         P[i-1, i-1] = self_weight / total_weight
         for v, w in neighbors:
             P[i-1, v-1] = w / total_weight
     return P, adj
 
-def find_steady_state(
-    P: np.ndarray, 
-    threshold: float
-) -> tuple[np.ndarray, int, list[float]]:
-    """
-    使用冪法 (Power Method) 計算馬可夫鏈的穩定狀態分佈 π。
-    
-    Args:
-        P (np.ndarray): 轉移矩陣 (n x n)。
-        threshold (float): 收斂判斷閾值，誤差低於此值則停止。
-        
-    Returns:
-        tuple[np.ndarray, int, list]: 
-            - v: 穩定狀態機率分佈向量 (長度 n)。
-            - iteration: 實際執行迭代的次數。
-            - error_history: 記錄每次迭代的最大誤差列表。
-    """
+def find_steady_state(P, threshold):
     n = P.shape[0]
-    if n == 0:
-        return np.array([]), 0, []
-    v = np.zeros(n)
-    v[0] = 1.0
+    if n == 0: return np.array([]), 0, []
+    v = np.zeros(n); v[0] = 1.0
     error_history = []
     iteration = 0
     while True:
         v_next = np.dot(v, P)
         error = np.max(np.abs(v_next - v))
         error_history.append(error)
-        if error < threshold or iteration > 10000:
-            break
+        if error < threshold or iteration > 10000: break
         v = v_next
         iteration += 1
     return v, iteration, error_history
 
-def get_convergence_history_fixed(
-    P: np.ndarray, 
-    max_iters: int
-) -> list[float]:
-    """
-    執行固定次數的迭代並記錄誤差，不因閾值提前停止。
-    
-    Args:
-        P (np.ndarray): 轉移矩陣 (n x n)。
-        max_iters (int): 強制執行的迭代次數。
-        
-    Returns:
-        list[float]: 長度為 max_iters 的誤差記錄列表。
-    """
+def get_convergence_history_fixed(P, max_iters):
     n = P.shape[0]
-    if n == 0:
-        return []
-    v = np.zeros(n)
-    v[0] = 1.0
+    if n == 0: return []
+    v = np.zeros(n); v[0] = 1.0
     error_history = []
     for i in range(max_iters):
         v_next = np.dot(v, P)
@@ -194,28 +172,9 @@ def get_convergence_history_fixed(
     return error_history
 
 # =====================================================================================================
-# 3. 視覺化模組
+# 3. 視覺化模組 (保持不變)
 # =====================================================================================================
-def create_interactive_graph(
-    n: int, 
-    edges_with_weights: list[tuple[int, int, float]], 
-    steady_v: np.ndarray | None = None, 
-    fixed_pos: dict[int, tuple[float, float]] | None = None, 
-    label_prefix: str = "位置"
-) -> str:
-    """
-    使用 PyVis 建立互動式網路圖並儲存為 HTML。
-    
-    Args:
-        n (int): 節點總數。
-        edges_with_weights (list): 帶權邊列表 [(u, v, weight), ...]。
-        steady_v (np.ndarray, optional): 穩定狀態機率向量，用於節點染色。
-        fixed_pos (dict, optional): 固定座標字典 {node: (x, y)}。
-        label_prefix (str): 節點標籤前綴。
-        
-    Returns:
-        str: 生成的 HTML 檔案路徑 ("graph.html")。
-    """
+def create_interactive_graph(n, edges_with_weights, steady_v=None, fixed_pos=None, label_prefix="位置"):
     net = Network(height="500px", width="100%", bgcolor="#ffffff", font_color="black")
     if fixed_pos:
         net.set_options('{"physics":{"enabled":false}, "nodes":{"font":{"size":16}}}')
@@ -238,43 +197,25 @@ def create_interactive_graph(
     net.save_graph("graph.html")
     return "graph.html"
 
-def draw_simulation_frame(
-    n: int, 
-    edges: list[tuple[int, int, float]], 
-    current_node: int, 
-    steady_v: np.ndarray, 
-    fixed_pos: dict[int, tuple[float, float]] | None = None
-) -> plt.Figure:
-    """
-    繪製隨機行走模擬的單個畫面幀。
-    
-    Args:
-        n (int): 節點總數。
-        edges (list): 邊列表。
-        current_node (int): 當前所在節點編號。
-        steady_v (np.ndarray): 穩定狀態分佈。
-        fixed_pos (dict, optional): 固定座標字典。
-        
-    Returns:
-        plt.Figure: 包含單幀繪圖的 Matplotlib Figure 物件。
-    """
+def draw_simulation_frame(n, edges, current_node, steady_v, fixed_pos=None):
     G = nx.Graph()
     G.add_nodes_from(range(1, n + 1))
     G.add_edges_from([(u, v) for u, v, w in edges])
     pos = fixed_pos if fixed_pos else nx.spring_layout(G, seed=42)
-    node_colors = ["#FFFF00" if i == current_node else "#ADD8E6" for i in range(1, n + 1)]
+    node_colors = ["#FFD60A" if i == current_node else "#ADD8E6" for i in range(1, n + 1)]
     fig, ax = plt.subplots(figsize=(6, 4), dpi=100)
     nx.draw(G, pos, with_labels=True, node_color=node_colors, node_size=600, edge_color="#D3D3D3", font_size=10, font_weight='bold', ax=ax)
     plt.axis('off')
     return fig
 
-# =================================================================================================
+# =====================================================================================================
 # 4. Streamlit 主界面
 # ===================================================================================================
 st.set_page_config(page_title="Markov Analysis Suite Pro", layout="wide")
 apply_custom_style()
+
 st.markdown('<div class="mode-selector">', unsafe_allow_html=True)
-st.markdown("<h2 style='text-align: center; color: #2c3e50;'>🛠️ 系統分析模式選擇</h2>", unsafe_allow_html=True)
+st.markdown("<h2 style='text-align: center; color: #1d1d1f; font-family: sans-serif;'>🛠️ 系統分析模式選擇</h2>", unsafe_allow_html=True)
 mode = st.radio(
     "請選擇您要分析的對象：",
     ["👮 交通警察巡邏 (Police Patrol)", "🐁 8格迷宮老鼠 (Mouse Maze)"],
@@ -289,9 +230,11 @@ INITIAL_TOPO = {
     'fixed_pos': {1: (0, 100), 2: (100, 100), 3: (0, 0), 4: (100, 0), 5: (50, 50)},
     'allow_self_loop': True
 }
+
 if 'topo_data' not in st.session_state:
     st.session_state.topo_data = INITIAL_TOPO.copy()
 
+# 側邊欄配置
 st.sidebar.header("⚙️ 配置中心")
 if mode == "👮 交通警察巡邏 (Police Patrol)":
     with st.sidebar.expander("📍 佈局設定", expanded=True):
@@ -324,8 +267,7 @@ if mode == "👮 交通警察巡邏 (Police Patrol)":
                         u, v, w = map(float, line.split(','))
                         temp_edges.append((int(u), int(v), w))
                         curr_max = max(curr_max, int(u), int(v))
-                    except:
-                        pass
+                    except: pass
             st.session_state.topo_data = {'n_nodes': max(curr_max, 2), 'edges': temp_edges, 'fixed_pos': None, 'allow_self_loop': True}
 elif mode == "🐁 8格迷宮老鼠 (Mouse Maze)":
     with st.sidebar.expander("📍 迷宮設定", expanded=True):
@@ -336,12 +278,13 @@ elif mode == "🐁 8格迷宮老鼠 (Mouse Maze)":
 
 with st.sidebar.expander("📈 數學精度設定", expanded=False):
     threshold = st.number_input("收斂閾值", value=0.000001, format="%.7f")
+
 st.sidebar.markdown("---")
-st.sidebar.subheader("🛠️ 系統管理")
 if st.sidebar.button("🔄 一鍵重置所有配置", key="reset_btn"):
     st.session_state.topo_data = INITIAL_TOPO.copy()
     st.rerun()
 
+# 核心計算
 n_nodes = st.session_state.topo_data['n_nodes']
 edges_with_weights = st.session_state.topo_data['edges']
 fixed_pos = st.session_state.topo_data['fixed_pos']
@@ -350,11 +293,13 @@ label_prefix = "路口" if mode == "👮 交通警察巡邏 (Police Patrol)" els
 P, adj = build_transition_matrix(n_nodes, edges_with_weights, allow_self_loop=allow_self)
 steady_v, iters, error_hist_auto = find_steady_state(P, threshold)
 
+# 指標看板
 m_col1, m_col2, m_col3 = st.columns(3)
 m_col1.metric("路口/位置規模", f"{n_nodes} 處")
 m_col2.metric("自動收斂次數", f"{iters} 次")
 m_col3.metric("系統狀態", "穩定" if iters < 10000 else "未收斂")
 
+# 分頁設定
 tabs_list = ["🌐 互動拓撲圖", "⏱️ 隨機行走模擬", "📈 步數分佈演進", "📊 轉移矩陣", "📉 收斂趨勢", "🎯 穩定狀態", "📝 計算詳情", "📐 數學原理"]
 if mode == "🐁 8格迷宮老鼠 (Mouse Maze)":
     tabs_list.insert(4, "🧮 矩陣運算分析")
@@ -387,7 +332,7 @@ with tab_map["⏱️ 隨機行走模擬"]:
                 map_placeholder.pyplot(fig)
                 status_placeholder.markdown(f"**狀態**：第 {i+1} 步 $\rightarrow$ 位於 **{label_prefix} {current}**")
                 path_str = " $\rightarrow$ ".join(map(str, visited_path))
-                path_placeholder.markdown(f'<div class="path-box"><strong style="color:#007bff;">🚶 實時路徑紀錄：</strong><br>{path_str}</div>', unsafe_allow_html=True)
+                path_placeholder.markdown(f'<div class="path-box"><strong style="color:#007AFF;">🚶 實時路徑紀錄：</strong><br>{path_str}</div>', unsafe_allow_html=True)
                 probs = P[current-1, :]
                 current = np.random.choice(range(1, n_nodes + 1), p=probs / np.sum(probs))
                 visited_path.append(current)
@@ -395,80 +340,106 @@ with tab_map["⏱️ 隨機行走模擬"]:
                 plt.close(fig)
             st.success(f"✅ 模擬結束。完整路徑：{' $\rightarrow$ '.join(map(str, visited_path))}")
 
+# =====================================================================================================
+# 📈 步數分佈演進 (功能強化版：可選擇出發位置 + iOS 風格封裝)
+# =====================================================================================================
 with tab_map["📈 步數分佈演進"]:
-    st.subheader("🚶 從位置 1 出發的機率演進")
-    st.markdown('<div class="calc-box">', unsafe_allow_html=True)
-    st.markdown("**數學依據：n 步轉移機率計算**")
-    st.latex(r"(P^n)_{ij} = \sum_{k=1}^{m} P_{ik}^{(n-1)} P_{kj}")
+    st.subheader("🚶 隨機行走機率演進分析")
+    
+    # 使用玻璃擬態卡片封裝數學原理
     st.markdown(f"""
-    <div class="explain-box">
-    <strong>💡 公式解析：</strong><br>
-    此公式描述了從位置 $i$ 出發，經過 $n$ 個時間單位（小時）到達位置 $j$ 的機率。
-    它透過對所有可能的中間點 $k$（共 $m={n_nodes}$ 個）進行加總，計算「前 $n-1$ 小時到達 $k$」且「最後一小時從 $k$ 移動到 $j$」的總機率。
+    <div class="glass-card">
+        <div class="calc-box">
+            <strong style="font-size:1.1rem;">📏 數學依據：n 步轉移機率計算</strong><br>
+            <div style="margin: 10px 0;">
+                $$(P^n)_{{ij}} = \\sum_{{k=1}}^{{m}} P_{{ik}} \\dots P_{{kj}}$$
+            </div>
+            <div class="explain-box">
+                <strong>💡 邏輯解析：</strong><br>
+                這代表從起始位置 $i$ 出發，經過 $n$ 個時間單位到達位置 $j$ 的機率。
+                透過矩陣冪運算 $P^n$，我們可以一次計算出所有位置在 $n$ 步後的分布情況。
+            </div>
+        </div>
     </div>
     """, unsafe_allow_html=True)
+
+    # 設定區
+    col_setup_1, col_setup_2 = st.columns([1, 1])
+    with col_setup_1:
+        # 【功能強化】允許使用者選擇出發位置
+        start_pos_evo = st.number_input("選擇出發位置 (Starting Node)", 1, n_nodes, 1)
+    with col_setup_2:
+        hours = st.number_input("設定時間 (小時/步數)", 0, 500, 1)
+
+    # 計算分佈
+    v0 = np.zeros(n_nodes)
+    v0[start_pos_evo - 1] = 1.0  # 動態設定起點
+    Pm = np.linalg.matrix_power(P, hours)
+    vm = np.dot(v0, Pm)
+
+    # 結果展示 (玻璃擬態)
+    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    res_col1, res_col2 = st.columns([1, 1])
+    with res_col1:
+        st.markdown(f"**⏱️ 第 {hours} 小時分佈表 (從 {label_prefix} {start_pos_evo} 出發)**")
+        df_vm = pd.DataFrame({"位置": [f"{label_prefix} {i+1}" for i in range(n_nodes)], "機率": vm})
+        st.table(df_vm.style.format({"機率": "{:.4%}"}))
+    with res_col2:
+        st.markdown("**📊 機率分佈視覺化**")
+        fig_vm, ax_vm = plt.subplots(figsize=(5, 4))
+        ax_vm.bar(df_vm["位置"], df_vm["機率"], color="#007AFF", edgecolor="#005BBF", linewidth=1)
+        ax_vm.set_ylabel("Probability")
+        ax_vm.set_ylim(0, 1.0)
+        ax_vm.set_title(f"Distribution after {hours} step(s)")
+        st.pyplot(fig_vm)
+        plt.close(fig_vm)
     st.markdown('</div>', unsafe_allow_html=True)
 
-    st.write("設定時間 (小時)，計算在該時間點時，出現在各個位置的機率分佈 $v^{(n)} = v^{(0)} P^n$")
-    col_in, col_out = st.columns([1, 2])
-    with col_in:
-        hours = st.number_input("設定時間 (小時)", 0, 500, 1)
-        st.info("當小時 = 0 時，機率 100% 在位置 1。")
-    with col_out:
-        v0 = np.zeros(n_nodes)
-        v0[0] = 1.0
-        Pm = np.linalg.matrix_power(P, hours)
-        vm = np.dot(v0, Pm)
-        df_vm = pd.DataFrame({"位置": [f"{label_prefix} {i+1}" for i in range(n_nodes)], "機率": vm})
-        res_col1, res_col2 = st.columns([1, 1])
-        with res_col1:
-            st.markdown("**時間點機率分佈表**")
-            st.table(df_vm.style.format({"機率": "{:.4%}"}))
-        with res_col2:
-            st.markdown("**分佈可視化**")
-            fig_vm, ax_vm = plt.subplots(figsize=(5, 4))
-            ax_vm.bar(df_vm["位置"], df_vm["機率"], color="#007bff")
-            ax_vm.set_ylabel("Probability")
-            ax_vm.set_ylim(0, 1.0)
-            ax_vm.set_title(f"Distribution after {hours} hour(s)")
-            st.pyplot(fig_vm)
-            plt.close(fig_vm)
-
     st.markdown("---")
-    st.subheader("⏳ 機率分佈隨時間演進趨勢")
+    st.subheader("⏳ 長期演進趨勢圖")
+    
+    # 趨勢分析
     max_trace_hours = st.slider("分析總時長 (小時)", 1, 100, 20)
     trace_data = []
     curr_v = v0.copy()
     for s in range(max_trace_hours + 1):
         trace_data.append(curr_v.copy())
         curr_v = np.dot(curr_v, P)
+    
     df_trace = pd.DataFrame(trace_data, columns=[f"{label_prefix} {i+1}" for i in range(n_nodes)])
+    
+    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
     fig_trace, ax_trace = plt.subplots(figsize=(10, 4))
     for col in df_trace.columns:
-        ax_trace.plot(df_trace.index, df_trace[col], label=col, marker='.', markersize=4)
+        ax_trace.plot(df_trace.index, df_trace[col], label=col, marker='.', markersize=4, alpha=0.8)
     ax_trace.set_xlabel("Time (Hours)")
     ax_trace.set_ylabel("Probability")
-    ax_trace.set_title("Probability Evolution over Time (Starting from Pos 1)")
+    ax_trace.set_title(f"Evolution from {label_prefix} {start_pos_evo}")
     ax_trace.legend(loc='upper right', bbox_to_anchor=(1.15, 1))
-    ax_trace.grid(True, alpha=0.3)
+    ax_trace.grid(True, alpha=0.2)
     st.pyplot(fig_trace)
     plt.close(fig_trace)
+    st.markdown('</div>', unsafe_allow_html=True)
 
+# =====================================================================================================
+# 其餘分頁 (維持原邏輯，僅將部分容器改為 glass-card)
+# =====================================================================================================
 if "🧮 矩陣運算分析" in tab_map:
     with tab_map["🧮 矩陣運算分析"]:
         st.subheader("🎯 特定步數機率計算")
-        col_input, col_res = st.columns([1, 2])
-        with col_input:
-            start_node_m = st.number_input("設定起始位置 $v^{(0)}$", 1, n_nodes, 1)
-            target_node_m = st.number_input("設定目標位置", 1, n_nodes, 5)
-            steps_m = st.number_input("計算步數 $m$", 1, 100, 2)
-        with col_res:
-            Pm = np.linalg.matrix_power(P, steps_m)
-            v0 = np.zeros(n_nodes); v0[start_node_m-1] = 1.0
-            vm = np.dot(v0, Pm)
-            st.metric(f"經過 {steps_m} 步後，在位置 {target_node_m} 的機率", f"{vm[target_node_m-1]:.4%}")
-            df_vm = pd.DataFrame({"位置": range(1, n_nodes+1), "機率": vm})
-            st.bar_chart(df_vm.set_index("位置")["機率"])
+        with st.container():
+            col_input, col_res = st.columns([1, 2])
+            with col_input:
+                start_node_m = st.number_input("設定起始位置 $v^{(0)}$", 1, n_nodes, 1)
+                target_node_m = st.number_input("設定目標位置", 1, n_nodes, 5)
+                steps_m = st.number_input("計算步數 $m$", 1, 100, 2)
+            with col_res:
+                Pm = np.linalg.matrix_power(P, steps_m)
+                v0 = np.zeros(n_nodes); v0[start_node_m-1] = 1.0
+                vm = np.dot(v0, Pm)
+                st.metric(f"經過 {steps_m} 步後，在位置 {target_node_m} 的機率", f"{vm[target_node_m-1]:.4%}")
+                df_vm = pd.DataFrame({"位置": range(1, n_nodes+1), "機率": vm})
+                st.bar_chart(df_vm.set_index("位置")["機率"])
 
 with tab_map["📊 轉移矩陣"]:
     st.subheader("轉移矩陣 $P$ (行加總為 1)")
@@ -477,26 +448,20 @@ with tab_map["📊 轉移矩陣"]:
                         columns=[f"{label_prefix} {i+1}" for i in range(n_nodes)])
     df_P['行加總 (Sum)'] = row_sums
     st.dataframe(df_P.style.format("{:.4f}"))
-    st.caption("💡 驗證：每一行的『行加總』應精確等於 1.0000，代表機率分佈完整。")
 
 with tab_map["📉 收斂趨勢"]:
     st.subheader("收斂過程分析")
-    col_ctrl, col_info = st.columns([1, 1])
-    with col_ctrl:
-        user_iters = st.slider("調整迭代次數 (Iterations)", 1, 500, 100)
-    with col_info:
-        st.info(f"目前設定執行 {user_iters} 次迭代。您可以觀察 Max Error 如何隨著次數增加而下降。")
+    user_iters = st.slider("調整迭代次數 (Iterations)", 1, 500, 100)
     error_hist_user = get_convergence_history_fixed(P, user_iters)
     if len(error_hist_user) > 0:
         fig_conv, ax_conv = plt.subplots(figsize=(8, 4))
-        ax_conv.plot(error_hist_user, color='#007bff', lw=2, marker='o', markersize=2, alpha=0.8)
+        ax_conv.plot(error_hist_user, color='#007AFF', lw=2, marker='o', markersize=2, alpha=0.8)
         ax_conv.set_yscale('log')
         ax_conv.set_xlabel("Iterations")
         ax_conv.set_ylabel("Max Error (Log)")
-        ax_conv.set_title(f"Convergence trend analysis (N={user_iters})")
         ax_conv.grid(True, which="both", ls="-", alpha=0.3)
         st.pyplot(fig_conv)
-        st.metric("最終 Max Error", f"{error_hist_user[-1]:.8f}")
+        plt.close(fig_conv)
 
 with tab_map["🎯 穩定狀態"]:
     st.subheader("長期分佈 (穩定狀態)")
@@ -554,4 +519,4 @@ with tab_map["📐 數學原理"]:
     if mode == "🐁 8格迷宮老鼠 (Mouse Maze)":
         st.markdown("### 迷宮問題分析\n- **無自環限制**：$P_{ii} = 0$。\n- **多步轉移**：使用 $P^m$ 求解分佈。")
     else:
-        st.markdown("#### 巡邏問題分析\n- **自環權重**：$w_{ii} = 1.0$。")
+        st.markdown("### 巡邏問題分析\n- **自環權重**：$w_{ii} = 1.0$。")
