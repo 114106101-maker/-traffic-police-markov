@@ -147,66 +147,388 @@ def create_interactive_graph(n, edges_with_weights, steady_v=None, fixed_pos=Non
     net.save_graph("graph.html")
     return "graph.html"
 
-def render_smooth_simulation(n_nodes, edges, P_matrix, start_node, speed):
+def render_smooth_simulation(n_nodes, edges, P_matrix, start_node, speed, label_prefix="位置", max_steps=500):
     P_json = P_matrix.tolist()
-    nodes_js = [{"id": i, "label": f"Pos {i}", "color": {"background": "#ADD8E6", "border": "#B0C4DE"}} for i in range(1, n_nodes + 1)]
+    nodes_js = [{"id": i, "label": f"{label_prefix}{i}", "color": {"background": "#ADD8E6", "border": "#7EB8D4"}} for i in range(1, n_nodes + 1)]
     edges_js = []
     for u, v, w in edges:
-        edges_js.append({"from": u, "to": v, "width": w * 2, "color": {"color": "#D3D3D3"}})
+        edges_js.append({"from": u, "to": v, "width": max(1, w * 2), "color": {"color": "#C8C8D0"}})
 
     html_content = f"""
-    <div id="simulation-container" style="width: 100%; height: 500px; background: white; border-radius: 24px; overflow: hidden; position: relative;">
-        <div id="status-bar" style="position: absolute; top: 20px; left: 20px; z-index: 10; 
-             background: rgba(255,255,255,0.8); padding: 10px 20px; border-radius: 15px; 
-             font-family: 'SF Pro Display', sans-serif; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-             color: #1d1d1f; font-weight: 600;">準備就緒...</div>
-        <div id="mynetwork"></div>
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * {{ box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }}
+  body {{ background: #f5f7fa; }}
+  #wrap {{ display: flex; flex-direction: column; height: 780px; gap: 10px; padding: 10px; }}
+
+  /* ── Top stats bar ── */
+  #statsbar {{
+    display: flex; gap: 8px; flex-shrink: 0;
+  }}
+  .stat-pill {{
+    flex: 1; background: white; border-radius: 14px;
+    padding: 10px 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    display: flex; flex-direction: column; align-items: center;
+  }}
+  .stat-label {{ font-size: 10px; color: #8e8e93; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; }}
+  .stat-value {{ font-size: 22px; font-weight: 700; color: #1d1d1f; margin-top: 2px; }}
+
+  /* ── Main area: graph + side panel ── */
+  #main {{ display: flex; gap: 10px; flex: 1; min-height: 0; }}
+  #graph-wrap {{ flex: 1; background: white; border-radius: 20px; box-shadow: 0 4px 16px rgba(0,0,0,0.06); overflow: hidden; position: relative; }}
+  #mynetwork {{ width: 100%; height: 100%; }}
+
+  /* ── Side panel ── */
+  #sidepanel {{ width: 180px; display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }}
+  .panel-box {{ background: white; border-radius: 16px; padding: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }}
+  .panel-title {{ font-size: 10px; font-weight: 700; color: #8e8e93; letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 8px; }}
+
+  /* Controls */
+  #controls {{ display: flex; gap: 6px; }}
+  .ctrl-btn {{
+    flex: 1; border: none; border-radius: 12px; padding: 10px 6px;
+    font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;
+  }}
+  #btn-play  {{ background: linear-gradient(180deg,#34C759,#248A3D); color:white; box-shadow:0 3px 10px rgba(52,199,89,0.35); }}
+  #btn-pause {{ background: linear-gradient(180deg,#FF9500,#CC7700); color:white; box-shadow:0 3px 10px rgba(255,149,0,0.35); }}
+  #btn-reset {{ background: linear-gradient(180deg,#FF3B30,#CC2218); color:white; box-shadow:0 3px 10px rgba(255,59,48,0.30); }}
+  .ctrl-btn:hover {{ transform: translateY(-1px); opacity: 0.92; }}
+  .ctrl-btn:disabled {{ opacity: 0.4; cursor: default; transform: none; }}
+
+  /* Visit freq bars */
+  .freq-row {{ display: flex; align-items: center; gap: 6px; margin-bottom: 5px; }}
+  .freq-label {{ font-size: 11px; color: #3a3a3c; width: 38px; flex-shrink: 0; }}
+  .freq-bar-wrap {{ flex: 1; background: #f2f2f7; border-radius: 4px; height: 8px; overflow: hidden; }}
+  .freq-bar {{ height: 100%; border-radius: 4px; background: linear-gradient(90deg,#007AFF,#5AC8FA); transition: width 0.4s ease; }}
+  .freq-pct {{ font-size: 10px; color: #8e8e93; width: 32px; text-align: right; flex-shrink: 0; }}
+
+  /* Path history */
+  #path-scroll {{ max-height: 110px; overflow-y: auto; font-size: 11px; color: #3a3a3c; line-height: 1.8; }}
+  #path-scroll::-webkit-scrollbar {{ width: 4px; }}
+  #path-scroll::-webkit-scrollbar-thumb {{ background: #c7c7cc; border-radius: 2px; }}
+  .path-step {{ display: inline-block; background: #f2f2f7; border-radius: 6px; padding: 1px 6px; margin: 1px; font-weight: 600; }}
+  .path-step.current {{ background: #FFD60A; color: #1d1d1f; }}
+
+  /* Speed slider */
+  #speed-slider {{ width: 100%; accent-color: #007AFF; }}
+  .speed-label {{ font-size: 11px; color: #8e8e93; text-align: center; margin-top: 4px; }}
+
+  /* Legend */
+  .legend-row {{ display: flex; align-items: center; gap: 6px; margin-bottom: 4px; font-size: 11px; color: #3a3a3c; }}
+  .legend-dot {{ width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }}
+
+  /* Bottom: probability bar chart */
+  #probchart {{ background: white; border-radius: 16px; padding: 12px 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); flex-shrink: 0; }}
+  #probchart-title {{ font-size: 10px; font-weight: 700; color: #8e8e93; letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 8px; }}
+  #barchart {{ display: flex; align-items: flex-end; gap: 4px; height: 60px; }}
+  .bar-col {{ flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; }}
+  .bar-fill {{ width: 100%; border-radius: 4px 4px 0 0; transition: height 0.5s ease; min-height: 2px; }}
+  .bar-lbl  {{ font-size: 9px; color: #8e8e93; }}
+  .bar-pct  {{ font-size: 8px; color: #3a3a3c; font-weight: 600; }}
+</style>
+</head>
+<body>
+<div id="wrap">
+
+  <!-- Stats bar -->
+  <div id="statsbar">
+    <div class="stat-pill"><div class="stat-label">步數</div><div class="stat-value" id="stat-steps">0</div></div>
+    <div class="stat-pill"><div class="stat-label">目前位置</div><div class="stat-value" id="stat-pos">{start_node}</div></div>
+    <div class="stat-pill"><div class="stat-label">最常拜訪</div><div class="stat-value" id="stat-top">—</div></div>
+    <div class="stat-pill"><div class="stat-label">狀態</div><div class="stat-value" id="stat-status" style="font-size:13px;color:#34C759;">就緒</div></div>
+  </div>
+
+  <!-- Main -->
+  <div id="main">
+    <div id="graph-wrap"><div id="mynetwork"></div></div>
+
+    <div id="sidepanel">
+      <!-- Controls -->
+      <div class="panel-box">
+        <div class="panel-title">控制</div>
+        <div id="controls">
+          <button class="ctrl-btn" id="btn-play"  onclick="startSim()">▶ 開始</button>
+          <button class="ctrl-btn" id="btn-pause" onclick="pauseSim()" disabled>⏸</button>
+          <button class="ctrl-btn" id="btn-reset" onclick="resetSim()">↺</button>
+        </div>
+        <div style="margin-top:10px;">
+          <div class="panel-title">速度</div>
+          <input type="range" id="speed-slider" min="100" max="2000" value="{int(speed*1000)}" oninput="updateSpeed(this.value)">
+          <div class="speed-label" id="speed-display">{speed:.1f} 秒/步</div>
+        </div>
+      </div>
+
+      <!-- Visit frequency -->
+      <div class="panel-box" style="flex:1; overflow:hidden; display:flex; flex-direction:column;">
+        <div class="panel-title">拜訪頻率</div>
+        <div id="freq-bars" style="flex:1; overflow-y:auto;"></div>
+      </div>
+
+      <!-- Legend -->
+      <div class="panel-box">
+        <div class="panel-title">圖例</div>
+        <div class="legend-row"><div class="legend-dot" style="background:#FFD60A;border:2px solid #FFB800;"></div>目前位置</div>
+        <div class="legend-row"><div class="legend-dot" style="background:#007AFF;border:2px solid #005BBF;"></div>上一步</div>
+        <div class="legend-row"><div class="legend-dot" style="background:#ADD8E6;border:2px solid #7EB8D4;"></div>一般節點</div>
+        <div class="legend-row"><div class="legend-dot" style="background:linear-gradient(135deg,#FF6B6B,#FFD60A);"></div>高頻節點</div>
+      </div>
     </div>
-    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
-    <script type="text/javascript">
-        const nodes = new vis.DataSet({{nodes: {nodes_js}}});
-        const edges = new vis.DataSet({{edges: {edges_js}}});
-        const P = {P_json};
-        const startNode = {start_node};
-        const speed = {speed} * 1000; 
-        const container = document.getElementById('mynetwork');
-        const data = {{ nodes: nodes, edges: edges }};
-        const options = {{
-            nodes: {{ shape: 'circle', size: 25, font: {{ size: 14, face: 'SF Pro Display' }}, borderWidth: 2, shadow: true }},
-            edges: {{ smooth: {{ type: 'continuous' }}, interaction: {{ hover: true }} }},
-            physics: {{ enabled: true, barnesHut: {{ gravitationalConstant: -2000, centralGravity: 0.3, springLength: 150 }} }}
-        }};
-        const network = new vis.Network(container, data, options);
-        let currentNode = startNode;
-        let stepCount = 0;
-        async function move() {{
-            const probs = P[currentNode - 1];
-            let rand = Math.random();
-            let nextNode = 1;
-            let cumulativeProb = 0;
-            for (let i = 0; i < probs.length; i++) {{
-                cumulativeProb += probs[i];
-                if (rand <= cumulativeProb) {{ nextNode = i + 1; break; }}
-            }}
-            const edgeId = edges.getIds().find(id => {{
-                const e = edges.get(id);
-                return (e.from === currentNode && e.to === nextNode) || (e.from === nextNode && e.to === currentNode);
-            }});
-            if (edgeId) {{
-                edges.update({{id: edgeId, color: {{color: '#007AFF'}}, width: 5}});
-                await new Promise(r => setTimeout(r, speed * 0.4));
-                edges.update({{id: edgeId, color: {{color: '#D3D3D3'}}, width: 2}});
-            }}
-            nodes.update({{id: currentNode, color: {{background: '#ADD8E6', border: '#B0C4DE'}}, shadow: false}});
-            nodes.update({{id: nextNode, color: {{background: '#FFD60A', border: '#FFB800'}}, shadow: true}});
-            currentNode = nextNode;
-            stepCount++;
-            document.getElementById('status-bar').innerText = `第 ${{stepCount}} 步 → 位於位置 ${{currentNode}}`;
-        }}
-        setInterval(move, speed);
-    </script>
-    """
-    return components.html(html_content, height=550)
+  </div>
+
+  <!-- Path history -->
+  <div class="panel-box" style="flex-shrink:0;">
+    <div class="panel-title">路徑紀錄（最近 40 步）</div>
+    <div id="path-scroll"></div>
+  </div>
+
+  <!-- Prob bar chart -->
+  <div id="probchart">
+    <div id="probchart-title">實際拜訪比例 vs 理論穩態（藍=實際 / 灰=理論）</div>
+    <div id="barchart"></div>
+  </div>
+
+</div>
+
+<script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+<script>
+const N = {n_nodes};
+const P = {P_json};
+const startNode = {start_node};
+const steadyV = {list(P_matrix) and [float(x) for x in P_matrix.T[0]]};  // placeholder, recalc below
+const labelPrefix = "{label_prefix}";
+const MAX_STEPS = {max_steps};
+
+// Compute steady state via power iteration
+function computeSteady(P, n) {{
+  let v = new Array(n).fill(1/n);
+  for (let iter = 0; iter < 3000; iter++) {{
+    let vn = new Array(n).fill(0);
+    for (let i = 0; i < n; i++)
+      for (let j = 0; j < n; j++)
+        vn[j] += v[i] * P[i][j];
+    let err = Math.max(...vn.map((x,i) => Math.abs(x - v[i])));
+    v = vn;
+    if (err < 1e-8) break;
+  }}
+  return v;
+}}
+const steady = computeSteady(P, N);
+
+// Build vis.js network
+const nodesData = {nodes_js};
+const edgesData = {edges_js};
+const visNodes = new vis.DataSet(nodesData);
+const visEdges = new vis.DataSet(edgesData);
+const network = new vis.Network(
+  document.getElementById('mynetwork'),
+  {{ nodes: visNodes, edges: visEdges }},
+  {{
+    nodes: {{ shape:'circle', size:28, font:{{size:14,face:'-apple-system',bold:{{color:'#1d1d1f'}}}}, borderWidth:2, shadow:{{enabled:true,size:6,x:0,y:2}} }},
+    edges: {{ smooth:{{type:'continuous'}}, color:{{inherit:false}}, selectionWidth:0 }},
+    physics: {{ enabled:true, barnesHut:{{gravitationalConstant:-2500,centralGravity:0.3,springLength:160}} }},
+    interaction: {{ hover:true, tooltipDelay:100 }}
+  }}
+);
+
+// State
+let currentNode = startNode;
+let stepCount = 0;
+let visitCount = new Array(N+1).fill(0);
+let pathHistory = [];
+let intervalId = null;
+let running = false;
+let simSpeed = {int(speed*1000)};
+let edgeMap = {{}};
+let prevNode = -1;
+
+// Build edge lookup
+visEdges.getIds().forEach(id => {{
+  const e = visEdges.get(id);
+  edgeMap[`${{e.from}}-${{e.to}}`] = id;
+  edgeMap[`${{e.to}}-${{e.from}}`] = id;
+}});
+
+// Init visit count
+visitCount[startNode]++;
+pathHistory.push(startNode);
+highlightNode(startNode, 'current');
+renderFreqBars();
+renderProbChart();
+renderPathHistory();
+
+function heatColor(ratio) {{
+  // ratio 0→1 maps to cool blue → warm red
+  const r = Math.round(173 + (255-173)*ratio);
+  const g = Math.round(216 - 216*ratio*0.7);
+  const b = Math.round(230 - 230*ratio*0.8);
+  return `rgb(${{r}},${{g}},${{b}})`;
+}}
+
+function highlightNode(nodeId, type) {{
+  if (type === 'current') {{
+    visNodes.update({{id: nodeId, color:{{background:'#FFD60A',border:'#FFB800'}}, shadow:{{enabled:true,size:10}}, size:34}});
+  }} else if (type === 'prev') {{
+    const ratio = visitCount[nodeId] / Math.max(1, Math.max(...visitCount.slice(1)));
+    const bg = heatColor(ratio);
+    visNodes.update({{id: nodeId, color:{{background:bg,border:'#7EB8D4'}}, shadow:{{enabled:true,size:5}}, size:28}});
+  }} else {{
+    visNodes.update({{id: nodeId, color:{{background:'#ADD8E6',border:'#7EB8D4'}}, shadow:{{enabled:false}}, size:28}});
+  }}
+}}
+
+async function step() {{
+  if (!running) return;
+  const probs = P[currentNode - 1];
+  let rand = Math.random(), nextNode = 1, cum = 0;
+  for (let i = 0; i < probs.length; i++) {{
+    cum += probs[i];
+    if (rand <= cum) {{ nextNode = i + 1; break; }}
+  }}
+
+  // Animate edge
+  const edgeKey = `${{currentNode}}-${{nextNode}}`;
+  const edgeId = edgeMap[edgeKey];
+  if (edgeId !== undefined) {{
+    visEdges.update({{id:edgeId, color:{{color:'#007AFF'}}, width:5}});
+    await delay(simSpeed * 0.35);
+    if (!running) {{ visEdges.update({{id:edgeId, color:{{color:'#C8C8D0'}}, width:2}}); return; }}
+    visEdges.update({{id:edgeId, color:{{color:'#C8C8D0'}}, width:2}});
+  }} else {{
+    await delay(simSpeed * 0.35);
+  }}
+
+  // Update nodes
+  if (prevNode > 0) highlightNode(prevNode, 'heat');
+  highlightNode(currentNode, 'prev');
+  highlightNode(nextNode, 'current');
+
+  prevNode = currentNode;
+  currentNode = nextNode;
+  stepCount++;
+  visitCount[currentNode]++;
+  pathHistory.push(currentNode);
+  if (pathHistory.length > 40) pathHistory.shift();
+
+  updateStats();
+  renderFreqBars();
+  renderProbChart();
+  renderPathHistory();
+
+  if (stepCount >= MAX_STEPS) {{
+    pauseSim();
+    document.getElementById('stat-status').textContent = '完成';
+    document.getElementById('stat-status').style.color = '#FF9500';
+  }}
+}}
+
+function delay(ms) {{ return new Promise(r => setTimeout(r, ms)); }}
+
+function startSim() {{
+  if (running) return;
+  running = true;
+  document.getElementById('btn-play').disabled = true;
+  document.getElementById('btn-pause').disabled = false;
+  document.getElementById('stat-status').textContent = '執行中';
+  document.getElementById('stat-status').style.color = '#34C759';
+  scheduleNext();
+}}
+
+function scheduleNext() {{
+  if (!running) return;
+  step().then(() => {{
+    if (running) intervalId = setTimeout(scheduleNext, simSpeed * 0.65);
+  }});
+}}
+
+function pauseSim() {{
+  running = false;
+  clearTimeout(intervalId);
+  document.getElementById('btn-play').disabled = false;
+  document.getElementById('btn-pause').disabled = true;
+  document.getElementById('stat-status').textContent = '暫停';
+  document.getElementById('stat-status').style.color = '#FF9500';
+}}
+
+function resetSim() {{
+  pauseSim();
+  currentNode = startNode;
+  prevNode = -1;
+  stepCount = 0;
+  visitCount = new Array(N+1).fill(0);
+  visitCount[startNode]++;
+  pathHistory = [startNode];
+  // Reset all nodes
+  for (let i = 1; i <= N; i++) highlightNode(i, 'none');
+  highlightNode(startNode, 'current');
+  updateStats();
+  renderFreqBars();
+  renderProbChart();
+  renderPathHistory();
+  document.getElementById('stat-status').textContent = '就緒';
+  document.getElementById('stat-status').style.color = '#34C759';
+}}
+
+function updateSpeed(val) {{
+  simSpeed = parseInt(val);
+  document.getElementById('speed-display').textContent = (simSpeed/1000).toFixed(1) + ' 秒/步';
+}}
+
+function updateStats() {{
+  document.getElementById('stat-steps').textContent = stepCount;
+  document.getElementById('stat-pos').textContent = labelPrefix + currentNode;
+  const maxVisit = Math.max(...visitCount.slice(1));
+  const topNode = visitCount.indexOf(maxVisit);
+  document.getElementById('stat-top').textContent = labelPrefix + topNode;
+}}
+
+function renderFreqBars() {{
+  const total = visitCount.slice(1).reduce((a,b)=>a+b,0) || 1;
+  const maxV = Math.max(...visitCount.slice(1)) || 1;
+  let html = '';
+  for (let i = 1; i <= N; i++) {{
+    const pct = visitCount[i] / total;
+    html += `<div class="freq-row">
+      <div class="freq-label">${{labelPrefix}}${{i}}</div>
+      <div class="freq-bar-wrap"><div class="freq-bar" style="width:${{(visitCount[i]/maxV*100).toFixed(1)}}%"></div></div>
+      <div class="freq-pct">${{(pct*100).toFixed(1)}}%</div>
+    </div>`;
+  }}
+  document.getElementById('freq-bars').innerHTML = html;
+}}
+
+function renderProbChart() {{
+  const total = visitCount.slice(1).reduce((a,b)=>a+b,0) || 1;
+  const maxSteady = Math.max(...steady);
+  let html = '';
+  for (let i = 1; i <= N; i++) {{
+    const actual = visitCount[i] / total;
+    const theory = steady[i-1];
+    const aH = Math.round(actual / maxSteady * 55);
+    const tH = Math.round(theory / maxSteady * 55);
+    html += `<div class="bar-col">
+      <div style="display:flex;align-items:flex-end;gap:1px;height:55px;">
+        <div class="bar-fill" style="height:${{aH}}px;background:linear-gradient(180deg,#007AFF,#5AC8FA);width:48%;"></div>
+        <div class="bar-fill" style="height:${{tH}}px;background:#d1d1d6;width:48%;"></div>
+      </div>
+      <div class="bar-lbl">${{i}}</div>
+    </div>`;
+  }}
+  document.getElementById('barchart').innerHTML = html;
+}}
+
+function renderPathHistory() {{
+  const el = document.getElementById('path-scroll');
+  el.innerHTML = pathHistory.map((n, idx) =>
+    `<span class="path-step${{idx === pathHistory.length-1 ? ' current' : ''}}">${{labelPrefix}}${{n}}</span>`
+  ).join(' → ');
+  el.scrollLeft = el.scrollWidth;
+}}
+</script>
+</body>
+</html>"""
+    return components.html(html_content, height=820)
 
 # ======================================================================================================
 # 4. Streamlit 主界面
@@ -304,22 +626,31 @@ with tab_map["🌐 互動拓撲圖"]:
     with open(graph_html, 'r', encoding='utf-8') as f:
         components.html(f.read(), height=550)
 
-# --- ⏱️ 隨機行走模擬 (iOS 平滑版) ---
+# --- ⏱️ 隨機行走模擬 ---
 with tab_map["⏱️ 隨機行走模擬"]:
-    st.subheader("🚀 iOS 流暢隨機行走模擬")
-    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    st.subheader("🚀 隨機行走模擬（強化版）")
     col_ctrl, col_map = st.columns([1, 3])
     with col_ctrl:
         start_node_sim = st.number_input("設定起點", 1, n_nodes, 1)
-        sim_speed = st.slider("動畫速度 (秒/步)", 0.2, 2.0, 0.8)
-        st.info("💡 提示：使用前端 GPU 加速，路徑具有脈衝過渡特效。")
-        run_sim_btn = st.button("🎬 啟動流暢模擬")
+        sim_speed = st.slider("初始速度 (秒/步)", 0.1, 2.0, 0.8)
+        max_steps_sim = st.number_input("最大步數上限", 50, 5000, 500, step=50)
+        st.markdown("""
+        <div class="explain-box">
+        <strong>✨ 新功能：</strong><br>
+        • ▶ / ⏸ / ↺ 即時控制<br>
+        • 滑桿動態調速（不需重啟）<br>
+        • 節點顏色熱度圖（拜訪越多越紅）<br>
+        • 拜訪頻率即時排行<br>
+        • 實際比例 vs 理論穩態對比圖<br>
+        • 路徑歷史紀錄（最近 40 步）
+        </div>
+        """, unsafe_allow_html=True)
+        run_sim_btn = st.button("🎬 載入模擬")
     with col_map:
         if run_sim_btn:
-            render_smooth_simulation(n_nodes, edges_with_weights, P, start_node_sim, sim_speed)
+            render_smooth_simulation(n_nodes, edges_with_weights, P, start_node_sim, sim_speed, label_prefix, max_steps_sim)
         else:
-            st.warning("請點擊『啟動流暢模擬』開始體驗。")
-    st.markdown('</div>', unsafe_allow_html=True)
+            st.info("設定好參數後，點擊左側「載入模擬」即可啟動。模擬載入後可用畫面內按鈕控制開始 / 暫停 / 重置，並即時調整速度。")
 
 # --- 📈 步數分佈演進 (強化版) ---
 with tab_map["📈 步數分佈演進"]:
