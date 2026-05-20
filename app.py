@@ -997,7 +997,7 @@ with tab_map["🌐 互動拓撲圖"]:
         components.html(f.read(), height=550)
 
 # ======================================================================================================
-# 分頁 2：隨機行走模擬
+# 分頁 2：隨機行走模擬（強化版）
 # ======================================================================================================
 with tab_map["⏱️ 隨機行走模擬"]:
     st.subheader("🚀 隨機行走模擬")
@@ -1132,8 +1132,8 @@ with tab_map["📉 收斂趨勢"]:
         fig_conv, ax_conv = plt.subplots(figsize=(8, 4))
         ax_conv.plot(err_hist, color='#007AFF', lw=2, marker='o', markersize=2)
         ax_conv.set_yscale('log')
-        ax_conv.set_xlabel("Number of iterations")
-        ax_conv.set_ylabel("Maximum error (log scale)")
+        ax_conv.set_xlabel("迭代次數")
+        ax_conv.set_ylabel("最大誤差 (log scale)")
         ax_conv.grid(True, alpha=0.3)
         ax_conv.set_title("Convergence Error per Iteration")
         st.pyplot(fig_conv); plt.close(fig_conv)
@@ -1178,16 +1178,16 @@ with tab_map["🎯 穩定狀態與回傳時間"]:
         x     = np.arange(n_nodes)
         width = 0.4
         bars1 = ax1.bar(x - width/2, df_rt["穩態機率 π"], width, color="#007AFF", label="π（穩態）")
-        ax1.set_ylabel("steady-state probability π", color="#007AFF")
+        ax1.set_ylabel("穩態機率 π", color="#007AFF")
         ax1.tick_params(axis='y', labelcolor="#007AFF")
         ax2 = ax1.twinx()
-        valid_rt = df_rt["Theoretical return steps μ = 1/π"].fillna(0)
+        valid_rt = df_rt["理論回傳步數 μ = 1/π"].fillna(0)
         bars2 = ax2.bar(x + width/2, valid_rt, width, color="#FF9500", alpha=0.8, label="μ = 1/π")
-        ax2.set_ylabel("Average number of return steps μ", color="#FF9500")
+        ax2.set_ylabel("平均回傳步數 μ", color="#FF9500")
         ax2.tick_params(axis='y', labelcolor="#FF9500")
         ax1.set_xticks(x)
         ax1.set_xticklabels([f"{label_prefix}{i+1}" for i in range(n_nodes)], rotation=45)
-        ax1.set_title("steady-state probability π vs Average number of return steps μ")
+        ax1.set_title("穩態機率 π vs 平均回傳步數 μ")
         lines1, labels1 = ax1.get_legend_handles_labels()
         lines2, labels2 = ax2.get_legend_handles_labels()
         ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper right', fontsize=8)
