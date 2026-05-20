@@ -861,7 +861,7 @@ st.markdown('<div class="mode-selector">', unsafe_allow_html=True)
 st.markdown("<h2 style='text-align:center;color:#1d1d1f;font-family:sans-serif;'>🛠️ 系統分析模式選擇</h2>",
             unsafe_allow_html=True)
 mode = st.radio("請選擇您要分析的對象：",
-                ["👮 交通警察巡邏 (Police Patrol)", "🐁 8格迷宮老鼠 (Mouse Maze)"],
+                ["👮 交通警察巡邏 (Police Patrol)", ""],
                 horizontal=True, label_visibility="collapsed")
 st.markdown('</div>', unsafe_allow_html=True)
 
