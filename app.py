@@ -628,7 +628,7 @@ with tab_map["🌐 互動拓撲圖"]:
 
 # --- ⏱️ 隨機行走模擬 ---
 with tab_map["⏱️ 隨機行走模擬"]:
-    st.subheader("🚀 隨機行走模擬（強化版）")
+    st.subheader("🚀 隨機行走模擬")
     col_ctrl, col_map = st.columns([1, 3])
     with col_ctrl:
         start_node_sim = st.number_input("設定起點", 1, n_nodes, 1)
